@@ -151,6 +151,17 @@
 @media(max-height:690px){.newdoc-modal .nd-workspace{height:calc(100dvh - 155px);max-height:calc(100dvh - 155px)}.newdoc-modal .nd-actions{bottom:-8px}}
 
 
+/* Tabbed inspector */
+.inspector-tabs-section{padding:0!important;background:#20212b}
+.inspector-tabs{height:39px;display:flex;align-items:stretch;border-bottom:1px solid #3a3c48;background:#1c1e27;position:sticky;top:0;z-index:4}
+.inspector-tabs button{flex:1;min-width:0;border:0;border-bottom:2px solid transparent;background:transparent;color:#8f94a5;font-size:10px;font-weight:750;padding:0 5px;cursor:pointer}
+.inspector-tabs button:hover{color:#d9dbe5;background:#252731}
+.inspector-tabs button.active{color:#f1edff;border-bottom-color:#9c83ff;background:#292a34}
+.inspector-tab-panel{display:none;padding:15px;min-height:205px}
+.inspector-tab-panel.active{display:block}
+.inspector-tabs-section .properties-section{background:#20212b}
+.inspector-tabs-section .color-section,.inspector-tabs-section .adjustments-section{border:0}
+
 /* Cosmetic cleanup requested: simplify chrome and right inspector */
 .topbar .offline-label,
 .topbar #headerNew,
@@ -340,9 +351,16 @@
 
       <aside class="inspector" aria-label="Properties and layers">
         <section class="inspector-section navigator-section"><div class="section-heading"><span>NAVIGATOR</span><button class="panel-icon" title="Fit to screen" id="fitNavigator"><svg><use href="#i-zoom"/></svg></button></div><div class="nav-thumb-container"><canvas id="navCanvas" width="244" height="128"></canvas></div><div class="navigator-footer"><span id="navigatorZoom">75%</span><input type="range" min="10" max="300" value="75" id="navigatorZoomRange" aria-label="Zoom"><button id="fitBtn">Fit</button></div></section>
-        <section class="inspector-section color-section"><div class="section-heading"><span>COLOR</span><span class="section-sub">Foreground</span></div><div class="color-control"><input type="color" id="colorPicker" value="#8b5cf6" aria-label="Foreground color"><div><span class="tiny-label">HEX VALUE</span><input type="text" spellcheck="false" maxlength="7" id="hexInput" value="#8B5CF6" aria-label="Hex color"></div><button class="eyedropper-small" id="pickColorBtn" title="Pick from canvas"><svg><use href="#i-dropper"/></svg></button></div><div class="swatches" id="swatches"></div></section>
-        <section class="inspector-section properties-section"><div class="section-heading"><span>PROPERTIES</span><span class="section-sub">Exact transform</span></div><div id="layerPropertiesBody"></div></section>
-        <section class="inspector-section adjustments-section"><div class="section-heading"><span>ADJUSTMENTS</span><svg class="heading-icon"><use href="#i-sliders"/></svg></div><div class="adjustment-row"><label for="adjBrightness">Brightness <output id="brightnessValue">0</output></label><input id="adjBrightness" type="range" min="-100" max="100" value="0"></div><div class="adjustment-row"><label for="adjContrast">Contrast <output id="contrastValue">0</output></label><input id="adjContrast" type="range" min="-100" max="100" value="0"></div><div class="adjustment-row"><label for="adjSaturation">Saturation <output id="saturationValue">0</output></label><input id="adjSaturation" type="range" min="-100" max="100" value="0"></div><div class="adjustment-row"><label for="adjHue">Hue <output id="hueValue">0°</output></label><input id="adjHue" type="range" min="-180" max="180" value="0"></div><div class="adjustments-actions"><button class="surface-btn" id="resetAdj">Reset</button><button class="surface-btn violet" id="applyAdj">Apply to layer</button></div><button class="all-adjustments-btn" id="fullAdjustmentsBtn">Detailed adjustments…</button><div class="quick-filters"><button data-preset="grayscale">B&W</button><button data-preset="sepia">Sepia</button><button data-preset="invert">Invert</button><button data-preset="soften">Soften</button><button data-preset="sharpen">Sharpen</button></div></section>
+        <section class="inspector-section inspector-tabs-section">
+          <div class="inspector-tabs" role="tablist" aria-label="Inspector panels">
+            <button type="button" class="active" data-inspector-tab="properties" role="tab" aria-selected="true">Properties</button>
+            <button type="button" data-inspector-tab="color" role="tab" aria-selected="false">Color</button>
+            <button type="button" data-inspector-tab="adjustments" role="tab" aria-selected="false">Adjustments</button>
+          </div>
+          <div class="inspector-tab-panel properties-section active" data-inspector-panel="properties" role="tabpanel"><div id="layerPropertiesBody"></div></div>
+          <div class="inspector-tab-panel color-section" data-inspector-panel="color" role="tabpanel"><div class="color-control"><input type="color" id="colorPicker" value="#8b5cf6" aria-label="Foreground color"><div><span class="tiny-label">HEX VALUE</span><input type="text" spellcheck="false" maxlength="7" id="hexInput" value="#8B5CF6" aria-label="Hex color"></div><button class="eyedropper-small" id="pickColorBtn" title="Pick from canvas"><svg><use href="#i-dropper"/></svg></button></div><div class="swatches" id="swatches"></div></div>
+          <div class="inspector-tab-panel adjustments-section" data-inspector-panel="adjustments" role="tabpanel"><div class="adjustment-row"><label for="adjBrightness">Brightness <output id="brightnessValue">0</output></label><input id="adjBrightness" type="range" min="-100" max="100" value="0"></div><div class="adjustment-row"><label for="adjContrast">Contrast <output id="contrastValue">0</output></label><input id="adjContrast" type="range" min="-100" max="100" value="0"></div><div class="adjustment-row"><label for="adjSaturation">Saturation <output id="saturationValue">0</output></label><input id="adjSaturation" type="range" min="-100" max="100" value="0"></div><div class="adjustment-row"><label for="adjHue">Hue <output id="hueValue">0°</output></label><input id="adjHue" type="range" min="-180" max="180" value="0"></div><div class="adjustments-actions"><button class="surface-btn" id="resetAdj">Reset</button><button class="surface-btn violet" id="applyAdj">Apply to layer</button></div><button class="all-adjustments-btn" id="fullAdjustmentsBtn">Detailed adjustments…</button><div class="quick-filters"><button data-preset="grayscale">B&W</button><button data-preset="sepia">Sepia</button><button data-preset="invert">Invert</button><button data-preset="soften">Soften</button><button data-preset="sharpen">Sharpen</button></div></div>
+        </section>
         <section class="inspector-section layer-section"><div class="section-heading layers-heading"><span>LAYERS <span class="layer-count" id="layerCount">2</span></span><div class="heading-actions"><button class="panel-icon" id="duplicateLayerBtn" title="Duplicate layer"><svg><use href="#i-copy"/></svg></button><button class="panel-icon" id="newGroupBtn" title="New folder / group"><svg><use href="#i-folder"/></svg></button><button class="panel-icon" id="newLayerBtn" title="New layer"><svg><use href="#i-plus"/></svg></button></div></div><div class="layer-props"><select id="blendSelect" aria-label="Blend mode"><option value="source-over">Normal</option><option value="multiply">Multiply</option><option value="screen">Screen</option><option value="overlay">Overlay</option><option value="darken">Darken</option><option value="lighten">Lighten</option><option value="difference">Difference</option><option value="soft-light">Soft Light</option><option value="hard-light">Hard Light</option></select><label>Opacity <input id="layerOpacity" type="number" min="0" max="100" value="100">%</label></div><div id="layerList" class="layer-list"></div><div class="layer-footer"><button id="groupSelectedBtn" title="Group selected layer"><svg><use href="#i-folder"/></svg></button><button id="clipLayerBtn" title="Clip image to layer below">↳</button><button id="maskLayerBtn" title="Create layer mask"><svg><use href="#i-mask"/></svg></button><button id="addImageLayer" title="Import as layer"><svg><use href="#i-image"/></svg></button><button id="moveLayerUp" title="Move layer up">↑</button><button id="moveLayerDown" title="Move layer down">↓</button><span></span><button id="deleteLayerBtn" title="Delete selected layer or folder (Delete key)" aria-label="Delete selected layer"><svg><use href="#i-trash"/></svg></button></div></section>
         <section class="inspector-section history-section"><div class="section-heading"><span>HISTORY</span><span class="section-sub" id="historyCount">1 state</span></div><div id="historyList" class="history-list"></div></section>
       </aside>
@@ -794,7 +812,7 @@ const copyCanvas = c => {const n=makeCanvas(c.width,c.height);n.getContext('2d')
 const record = (title='Edit') => {
   history=history.slice(0,historyIndex+1);history.push(snapshot(title));
   if(history.length>18)history.shift();historyIndex=history.length-1;
-  setDirty();renderAll();
+  setDirty();renderAll();scheduleActiveSessionSave();
 };
 const restore = index => {
   if(index<0||index>=history.length)return;
@@ -803,7 +821,7 @@ const restore = index => {
   state.layers=s.layers.map(l=>({...l,canvas:copyCanvas(l.canvas),maskCanvas:l.maskCanvas?copyCanvas(l.maskCanvas):null,bounds:l.bounds?{...l.bounds}:null,textConfig:l.textConfig?{...l.textConfig}:null}));
   state.activeId=s.activeId;state.selectedIds=(s.selectedIds||[s.activeId]).filter(id=>state.layers.some(l=>l.id===id));
   if(!state.selectedIds.length&&state.activeId&&state.layers.some(l=>l.id===state.activeId))state.selectedIds=[state.activeId];
-  state.selection=null;state.cropRect=null;resetAdjustments(false);resizeStage();renderAll();
+  state.selection=null;state.cropRect=null;resetAdjustments(false);resizeStage();renderAll();scheduleActiveSessionSave();
 };
 const undo = () => {if(historyIndex>0)restore(historyIndex-1);};
 const redo = () => {if(historyIndex<history.length-1)restore(historyIndex+1);};
@@ -1678,7 +1696,10 @@ const openAnyFile = async file => {
   if(/\.(pforge|json)$/i.test(file.name))return openProjectFile(file);
   return openRasterDocument(file);
 };
-const PF_LIBRARY_DB='PixelForgeLibrary',PF_LIBRARY_STORE='projects';
+const PF_LIBRARY_DB='PixelForgeLibrary',PF_LIBRARY_STORE='projects',PF_SESSION_ID='__pixelforge_active_session__';
+let sessionSaveTimer=null;
+const markWorkspaceView = view => {try{localStorage.setItem('pixelforge:lastView',view);}catch{}};
+
 const openLibraryDB = () => new Promise((resolve,reject)=>{
   if(!('indexedDB' in window)){reject(new Error('Browser project storage is unavailable'));return;}
   const req=indexedDB.open(PF_LIBRARY_DB,1);
@@ -1702,6 +1723,20 @@ const projectDataFromState = () => ({
     x:l.x,y:l.y,scaleX:l.scaleX,scaleY:l.scaleY,type:l.type,textConfig:l.textConfig,
     parentId:l.parentId,expanded:l.expanded,clipToBelow:l.clipToBelow,mask:l.maskCanvas?.toDataURL('image/png')||null,pixels:l.canvas.toDataURL('image/png')}))
 });
+const saveActiveSessionNow = async () => {
+  if(appShell.classList.contains('home-mode')||!state.layers.length)return;
+  try{
+    const recovery={id:PF_SESSION_ID,name:state.name||'Untitled',width:state.width,height:state.height,updatedAt:Date.now(),project:projectDataFromState()};
+    await libraryTransaction('readwrite',store=>store.put(recovery));
+  }catch(err){console.warn('PixelForge recovery save failed',err);}
+};
+const scheduleActiveSessionSave = () => {
+  if(appShell.classList.contains('home-mode'))return;
+  clearTimeout(sessionSaveTimer);sessionSaveTimer=setTimeout(saveActiveSessionNow,350);
+};
+const loadActiveSession = async () => {
+  try{return await libraryGet(PF_SESSION_ID);}catch(err){console.warn('PixelForge recovery load failed',err);return null;}
+};
 const projectThumbnail = () => {
   const source=makeCanvas(),sc=source.getContext('2d');drawLayers(sc,{showPreview:false,background:'#20222b'});
   const thumb=document.createElement('canvas');thumb.width=320;thumb.height=200;const t=thumb.getContext('2d');
@@ -1714,7 +1749,7 @@ const libraryList = async () => {
   const db=await openLibraryDB();
   return new Promise((resolve,reject)=>{
     const tx=db.transaction(PF_LIBRARY_STORE,'readonly'),req=tx.objectStore(PF_LIBRARY_STORE).getAll();
-    req.onsuccess=()=>resolve((req.result||[]).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)));
+    req.onsuccess=()=>resolve((req.result||[]).filter(item=>item.id!==PF_SESSION_ID).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)));
     req.onerror=()=>reject(req.error);tx.oncomplete=()=>db.close();
   });
 };
@@ -1746,11 +1781,13 @@ const removeLibraryProject = async id => {
 const showEditor = () => {
   appShell.classList.remove('home-mode');
   homeScreen.classList.add('hidden');
+  markWorkspaceView('editor');
   document.title=`${state.name||'Untitled'} — PixelForge Studio`;
-  requestAnimationFrame(()=>{resizeStage();fitZoom();renderAll();});
+  requestAnimationFrame(()=>{resizeStage();fitZoom();renderAll();scheduleActiveSessionSave();});
 };
 const showHome = async () => {
   closeMenus();appShell.classList.add('home-mode');homeScreen.classList.remove('hidden');
+  markWorkspaceView('home');
   document.title='PixelForge Studio — Home';
   await renderHomeLibrary();
 };
@@ -2038,6 +2075,14 @@ const documentInfoDialog=()=>{
   <div class="modal-actions"><button class="confirm" data-close>Close</button></div></div>`);
 };
 
+const activateInspectorTab = name => {
+  const valid=['properties','color','adjustments'];if(!valid.includes(name))name='properties';
+  $('.inspector-tabs [data-inspector-tab]').forEach(btn=>{
+    const active=btn.dataset.inspectorTab===name;btn.classList.toggle('active',active);btn.setAttribute('aria-selected',active?'true':'false');
+  });
+  $('.inspector-tab-panel[data-inspector-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.inspectorPanel===name));
+  try{localStorage.setItem('pixelforge:inspectorTab',name);}catch{}
+};
 const menuDefinitions = {
   file:[
     ['Home','',showHome],['---'],['New Custom Document…','Ctrl+N',requestCustomDocument],['New From Presets…','',resetDocument],['Open image or project as document…','Ctrl+O',()=>$('#openInput').click()],['Open PSD…','',()=>$('#psdInput').click()],['Open PixelForge project…','',()=>$('#projectInput').click()],
@@ -2071,7 +2116,7 @@ const menuDefinitions = {
   select:[['Select All','Ctrl+A',selectAll],['Deselect','Ctrl+D',deselect],['---'],['Rectangular Marquee','M',()=>setTool('marquee')],['Clear Selected Pixels','Shift+Delete',clearSelected]],
   filter:[['Blur · Soft','',()=>applyPreset('soften')],['Sharpen','',()=>applyPreset('sharpen')],['Grayscale','',()=>applyPreset('grayscale')],['Sepia','',()=>applyPreset('sepia')],['Invert','',()=>applyPreset('invert')]],
   view:[['Fit to Screen','Ctrl+0',fitZoom],['Actual Pixels (100%)','Ctrl+1',()=>{state.panX=state.panY=0;setZoom(1);}],['Zoom In','Ctrl++',()=>setZoom(state.zoom*1.25)],['Zoom Out','Ctrl+-',()=>setZoom(state.zoom/1.25)],['Show / Hide Grid','',()=>{gridEnabled=!gridEnabled;requestRender();}]],
-  window:[['Color Panel','',()=>toggleInspector('.color-section')],['Adjustments Panel','',()=>toggleInspector('.adjustments-section')],['Layers Panel','',()=>toggleInspector('.layer-section')],['Show All Panels','',()=>$$('.inspector-section:not(.navigator-section):not(.history-section)').forEach(x=>x.classList.remove('panel-collapsed'))]],
+  window:[['Properties','',()=>activateInspectorTab('properties')],['Color','',()=>activateInspectorTab('color')],['Adjustments','',()=>activateInspectorTab('adjustments')],['Layers Panel','',()=>toggleInspector('.layer-section')],['Show Layers','',()=>$('.layer-section')?.classList.remove('panel-collapsed')]],
   help:[['Keyboard shortcuts…','?',helpDialog],['Document information…','',documentInfoDialog],['About PixelForge Studio','',()=>openModal(`<div>${modalHead('PixelForge Studio','Local raster editor · Extended workspace')}<p>PSD raster-layer support and Photoshop-inspired editing menus. This is an independent application, not Adobe Photoshop. Some Photoshop capabilities, including smart objects, full adjustment layers, and CMYK, are not supported.</p><div class="modal-actions"><button class="confirm" data-close>Close</button></div></div>`)]]
 };
 const toggleInspector = selector=>{const p=$(selector);if(p)p.classList.toggle('panel-collapsed');};
@@ -2102,6 +2147,9 @@ const setupMenus = () => {
 };
 const setupUI = () => {
   setupMenus();
+  $('.inspector-tabs')?.addEventListener('click',e=>{const btn=e.target.closest('[data-inspector-tab]');if(btn)activateInspectorTab(btn.dataset.inspectorTab);});
+  let initialInspectorTab='properties';try{initialInspectorTab=localStorage.getItem('pixelforge:inspectorTab')||'properties';}catch{}
+  activateInspectorTab(initialInspectorTab);
   $$('.tool').forEach(btn=>btn.addEventListener('click',()=>setTool(btn.dataset.tool)));
   $('.brand').addEventListener('click',showHome);
   $('#homeNewCustom').addEventListener('click',requestCustomDocument);
@@ -2341,13 +2389,27 @@ const setupKeys = () => {
   });
   window.addEventListener('keyup',e=>{if(e.code==='Space'){panHolding=false;if(state.tool!=='hand'&&!drawInteraction)overlay.style.cursor=state.tool==='move'?'move':'crosshair';}});
   window.addEventListener('blur',()=>{panHolding=false;});
+  window.addEventListener('pagehide',()=>{if(!appShell.classList.contains('home-mode'))saveActiveSessionNow();});
   window.addEventListener('paste',async e=>{
     if(modalOpen||['input','textarea'].includes(e.target?.tagName?.toLowerCase()))return;
     const files=[...(e.clipboardData?.files||[])].filter(f=>f.type.startsWith('image/'));
     if(files.length){e.preventDefault();for(const f of files)await importImage(f);}else if(internalClipboard){e.preventDefault();pasteSelection();}
   });
 };
-const init = () => {setupUI();setupPointers();setupKeys();createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);showHome();window.addEventListener('resize',()=>{if(!appShell.classList.contains('home-mode')&&state.zoom*state.width>viewport.clientWidth*1.6)fitZoom();});};
+const init = async () => {
+  setupUI();setupPointers();setupKeys();
+  let lastView='home';try{lastView=localStorage.getItem('pixelforge:lastView')||'home';}catch{}
+  if(lastView==='editor'){
+    const recovered=await loadActiveSession();
+    if(recovered?.project){
+      try{await openProjectData(recovered.project,recovered.name||'Recovered document');showEditor();}
+      catch(err){console.warn('Could not restore active PixelForge document',err);createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();}
+    }else{createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();}
+  }else{
+    createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();
+  }
+  window.addEventListener('resize',()=>{if(!appShell.classList.contains('home-mode')&&state.zoom*state.width>viewport.clientWidth*1.6)fitZoom();});
+};
 init();
 })();
 
