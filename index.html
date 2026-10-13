@@ -151,6 +151,9 @@
 @media(max-height:690px){.newdoc-modal .nd-workspace{height:calc(100dvh - 155px);max-height:calc(100dvh - 155px)}.newdoc-modal .nd-actions{bottom:-8px}}
 
 
+.save-download-target{display:flex;align-items:center;gap:9px;border:1px solid #444753;border-radius:7px;background:#242631;color:#dcdde9;padding:10px 12px;font-size:11px;font-weight:700;line-height:1.35;min-width:0}
+.save-download-target svg{width:16px;height:16px;flex-shrink:0}
+.save-workflow .field-row .save-download-target{align-self:end;min-height:42px}
 /* Photoshop-inspired Save workflows */
 .modal.save-modal{width:min(640px,calc(100vw - 36px));max-width:min(640px,calc(100vw - 36px));min-width:0;max-height:calc(100dvh - 36px);overflow-y:auto;overflow-x:hidden;padding:24px}
 .save-workflow{min-width:0;width:100%;max-width:100%;overflow-wrap:anywhere}
@@ -2041,15 +2044,22 @@ const downloadNamedSave = async (format,name,options={}) => {
   triggerDownload(blob,basename+'.'+ext);
 };
 const saveWorkflowDialog = (mode='as') => {
-  const isExport=mode==='export',isCopy=mode==='copy'||isExport;
-  const initialName=isCopy&&!isExport?state.name+' copy':state.name;
-  const dialogTitle=isExport?'Export As':isCopy?'Save a Copy':mode==='first'?'Save Document':'Save As';
-  const description=isExport?'Download a finished image or a separate file. Your working document will remain unchanged.':isCopy?'Create an independent copy. Your open document remains unchanged.':'Choose a file name, format, and save location.';
+  const isExport=mode==='export',isSaveAs=mode==='as',isDownload=isExport||isSaveAs;
+  const isCopy=mode==='copy'||isDownload;
+  const initialName=mode==='copy'?state.name+' copy':state.name;
+  const dialogTitle=isExport?'Export As':isSaveAs?'Save As':mode==='copy'?'Save a Copy':'Save Document';
+  const description=isDownload
+    ?'Choose a filename and file format. The result downloads to your computer, and your current project remains open.'
+    :mode==='copy'?'Create a separate copy without changing your open document.'
+    :'Choose where to save your editable project.';
   const html='<form class="save-workflow">'+modalHead(dialogTitle,description)
     +'<label>File name<input name="name" value="'+escapeHTML(initialName)+'" maxlength="90" autocomplete="off" required></label>'
-    +'<div class="field-row"><label>Save to<select name="destination">'
-    +(cloudUser?'<option value="cloud">My Cloud (private account)</option>':'')
-    +'<option value="library">PixelForge Library (this device)</option><option value="computer">This computer (download)</option></select></label>'
+    +'<div class="field-row">'
+    +(isDownload
+      ?'<div><label>Save to</label><div class="save-download-target">This computer · Downloadable file</div><input type="hidden" name="destination" value="computer"></div>'
+      :'<label>Save to<select name="destination">'
+        +(cloudUser?'<option value="cloud">My Cloud (private account)</option>':'')
+        +'<option value="library">PixelForge Library (this device)</option><option value="computer">This computer (download)</option></select></label>')
     +'<label>Format<select name="format"><optgroup label="Editable documents"><option value="pforge">PixelForge Project (.pforge)</option><option value="psd">Photoshop (.psd)</option></optgroup>'
     +'<optgroup label="Image formats"><option value="png">PNG (.png)</option><option value="jpeg">JPEG (.jpg)</option><option value="webp">WebP (.webp)</option><option value="gif">GIF, single frame (.gif)</option><option value="bmp">BMP (.bmp)</option><option value="tiff">TIFF (.tif)</option><option value="tga">Targa (.tga)</option><option value="pdf">PDF, rasterized (.pdf)</option></optgroup></select></label></div>'
     +'<div class="save-meta"><div><span>DOCUMENT SIZE</span><strong>'+state.width.toLocaleString()+' × '+state.height.toLocaleString()+' px</strong></div>'
@@ -2067,12 +2077,13 @@ const saveWorkflowDialog = (mode='as') => {
     +'<label id="saveDpiRow" class="save-quality-hidden">Resolution (pixels per inch)<input name="outputDpi" type="number" min="36" max="1200" value="'+Math.round(state.resolution||72)+'"></label>'
     +'<div class="save-output-size save-setting-wide" id="saveOutputSize" aria-live="polite"></div>'
     +'</div>'
-    +'<div class="modal-actions"><button type="button" data-close>Cancel</button><button type="submit" class="confirm" id="saveWorkflowSubmit">'+(isExport?'Export':isCopy?'Save Copy':'Save')+'</button></div></form>';
+    +'<div class="modal-actions"><button type="button" data-close>Cancel</button><button type="submit" class="confirm" id="saveWorkflowSubmit">'+(isExport?'Export':isSaveAs?'Download file':mode==='copy'?'Save Copy':'Save')+'</button></div></form>';
+  const submitLabel=isExport?'Export':isSaveAs?'Download file':mode==='copy'?'Save Copy':'Save';
   openModal(html,async data=>{
     const form=$('#modalContent form'),button=$('#saveWorkflowSubmit');
     if(!form||!button||button.disabled)return;
     const name=cleanSaveName(data.get('name'));
-    const destination=String(data.get('destination')),format=String(data.get('format'));
+    const destination=isDownload?'computer':String(data.get('destination')),format=String(data.get('format'));
     const options={
       quality:clamp(Number(data.get('quality'))||92,10,100),
       transparency:data.get('transparency')!=='no',
@@ -2092,25 +2103,25 @@ const saveWorkflowDialog = (mode='as') => {
         const saved=destination==='cloud'
           ?await saveCloudProject({name,newFile:true,copy:isCopy})
           :await saveProjectToLibrary({name,newFile:true,copy:isCopy});
-        if(!saved){button.disabled=false;button.textContent=isCopy?'Save Copy':'Save';return;}
+        if(!saved){button.disabled=false;button.textContent=submitLabel;return;}
       }else{
         await downloadNamedSave(format,name,options);
         if(!isCopy&&format==='pforge'){
           state.name=name;state.libraryId=null;state.cloudId=null;state.cloudOwnerId=null;setDirty(false);
           document.title=state.name+' — PixelForge Studio';updateStatus();scheduleActiveSessionSave();
         }
-        toast(isCopy?'Copy downloaded':format==='pforge'?'Editable project downloaded':'File downloaded; the editable original is unchanged');
+        toast(isSaveAs?'Download started. Your current project is unchanged.':isCopy?'Copy download started':format==='pforge'?'Editable project download started':'Download started; the editable original is unchanged');
       }
       closeModal();
     }catch(err){
       console.error('Save failed',err);toast('Could not save: '+err.message);
-      button.disabled=false;button.textContent=isCopy?'Save Copy':'Save';
+      button.disabled=false;button.textContent=submitLabel;
     }
   });
   $('#modalContent').classList.add('save-modal');
   const form=$('#modalContent form'),destination=form.elements.namedItem('destination');
   const format=form.elements.namedItem('format'),note=$('#saveWorkflowNote');
-  if(isExport){destination.value='computer';format.value='png';}
+  if(isDownload){destination.value='computer';if(isExport)format.value='png';}
   else if(cloudUser)destination.value='cloud';
   const refresh=()=>{
     const type=format.value,local=destination.value==='library',cloud=destination.value==='cloud';
@@ -2757,7 +2768,7 @@ const menuDefinitions = {
   file:[
     ['Home','',showHome],['Account / Sign in…','',openAccountDialog],['---'],['New Custom Document…','Ctrl+N',requestCustomDocument],['New From Presets…','',resetDocument],['Open image or project as document…','Ctrl+O',()=>$('#openInput').click()],['Open PSD…','',()=>$('#psdInput').click()],['Open PixelForge project…','',()=>$('#projectInput').click()],
     ['---'],['Place image as layer…','',()=>$('#imageInput').click()],['Open sample composition','',()=>{if(!dirty||confirm('Discard unsaved changes and load the sample?'))createDemoProject();}],
-    ['---'],['Save','Ctrl+S',saveProject],['Save As…','Ctrl+Shift+S',saveAsDialog],['Save a Copy…','',saveCopyDialog],['Download PixelForge project…','',downloadProject],['---'],['Export','',[
+    ['---'],['Save','Ctrl+S',saveProject],['Save As (download)…','Ctrl+Shift+S',saveAsDialog],['Save a Copy…','',saveCopyDialog],['Download PixelForge project…','',downloadProject],['---'],['Export','',[
       ['PNG…','',()=>exportImage('png')],['JPEG…','',()=>exportImage('jpeg')],['WebP…','',()=>exportImage('webp')],['GIF (single-frame)…','',()=>exportSavedFormat('gif')],['BMP…','',()=>exportSavedFormat('bmp')],['TIFF…','',()=>exportSavedFormat('tiff')],['Targa (TGA)…','',()=>exportSavedFormat('tga')],['PDF (flattened)…','',()=>exportSavedFormat('pdf')],['Photoshop PSD (layers)…','',exportPSD],['Export options…','',exportDialog]
     ]],['---'],['Document information…','',documentInfoDialog],['Close document','',()=>{if(dirty&&!confirm('Discard unsaved changes?'))return;createBaseDocument(1280,800,true,'Untitled-1');}]
   ],
