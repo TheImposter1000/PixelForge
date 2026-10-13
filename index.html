@@ -1617,15 +1617,7 @@ const renameLayerDialog = (layer) => {
     layer.name=String(data.get('name')).trim()||layer.name;record('Rename layer');closeModal();
   });
 };
-const exportDialog = () => {
-  openModal(`<form>${modalHead('Export image','Download a finished image. Your layers remain unchanged.')}
-    <label>File format<select name="format"><option value="png">PNG · supports transparency</option><option value="jpeg">JPEG · smaller photos</option><option value="webp">WebP · optimized for web</option><option value="psd">Photoshop PSD · editable layers</option></select></label>
-    <div class="field-row"><label>Scale<select name="scale"><option value="1">1× · original resolution</option><option value="2">2× · double resolution</option></select></label><label>Quality (JPEG / WebP)<input type="number" min="10" max="100" name="quality" value="92"></label></div>
-    <p>Dimensions: ${state.width} × ${state.height} px at original scale. PSD exports raster layers (text remains visible but is not Photoshop editable text), and ignores the scale and quality controls.</p>${modalActions('Download file')}</form>`,data=>{
-      const type=String(data.get('format')),scale=Number(data.get('scale')),quality=clamp(Number(data.get('quality'))/100,.1,1);
-      if(type==='psd')exportPSD();else exportImage(type,scale,quality);closeModal();
-    });
-};
+const exportDialog = () => saveWorkflowDialog('export');
 const triggerDownload = (blob,filename) => {
   const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=filename;
   document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);
@@ -1837,7 +1829,7 @@ const openLibraryProject = async id => {
 };
 
 const cleanSaveName = raw => String(raw||'').trim()
-  .replace(/\.(?:pforge|psd|png|jpe?g|webp)$/i,'')
+  .replace(/\.(?:pforge|psd|png|jpe?g|webp|gif|bmp|tiff?|tga|pdf)$/i,'')
   .replace(/[\\/:*?"<>|\x00-\x1F]/g,'-').replace(/\s+/g,' ').trim().slice(0,80);
 // Offline, single-image encoders for Save As. No external services or libraries.
 function encodeStaticGif(image){
@@ -1996,10 +1988,10 @@ const downloadNamedSave = async (format,name,quality=92,transparency=true) => {
   triggerDownload(blob,basename+'.'+ext);
 };
 const saveWorkflowDialog = (mode='as') => {
-  const isCopy=mode==='copy';
-  const initialName=isCopy?state.name+' copy':state.name;
-  const dialogTitle=isCopy?'Save a Copy':mode==='first'?'Save Document':'Save As';
-  const description=isCopy?'Create an independent copy. Your open document remains unchanged.':'Choose a file name, format, and save location.';
+  const isExport=mode==='export',isCopy=mode==='copy'||isExport;
+  const initialName=isCopy&&!isExport?state.name+' copy':state.name;
+  const dialogTitle=isExport?'Export As':isCopy?'Save a Copy':mode==='first'?'Save Document':'Save As';
+  const description=isExport?'Download a finished image or a separate file. Your working document will remain unchanged.':isCopy?'Create an independent copy. Your open document remains unchanged.':'Choose a file name, format, and save location.';
   const html='<form class="save-workflow">'+modalHead(dialogTitle,description)
     +'<label>File name<input name="name" value="'+escapeHTML(initialName)+'" maxlength="90" autocomplete="off" required></label>'
     +'<div class="field-row"><label>Save to<select name="destination"><option value="library">PixelForge Library</option><option value="computer">This computer (download)</option></select></label>'
@@ -2010,7 +2002,7 @@ const saveWorkflowDialog = (mode='as') => {
     +'<div class="save-note" id="saveWorkflowNote" aria-live="polite"></div>'
     +'<div class="save-options"><label id="saveTransparencyRow" class="save-quality-hidden">Transparency<select name="transparency"><option value="yes">Preserve transparency</option><option value="no">Flatten onto white</option></select></label></div>'
     +'<label id="saveQualityRow" class="save-quality-hidden">Image quality (JPEG / WebP)<input name="quality" type="number" min="10" max="100" value="92"></label>'
-    +'<div class="modal-actions"><button type="button" data-close>Cancel</button><button type="submit" class="confirm" id="saveWorkflowSubmit">'+(isCopy?'Save Copy':'Save')+'</button></div></form>';
+    +'<div class="modal-actions"><button type="button" data-close>Cancel</button><button type="submit" class="confirm" id="saveWorkflowSubmit">'+(isExport?'Export':isCopy?'Save Copy':'Save')+'</button></div></form>';
   openModal(html,async data=>{
     const form=$('#modalContent form'),button=$('#saveWorkflowSubmit');
     if(!form||!button||button.disabled)return;
@@ -2040,6 +2032,7 @@ const saveWorkflowDialog = (mode='as') => {
   $('#modalContent').classList.add('save-modal');
   const form=$('#modalContent form'),destination=form.elements.namedItem('destination');
   const format=form.elements.namedItem('format'),qualityRow=$('#saveQualityRow'),note=$('#saveWorkflowNote');
+  if(isExport){destination.value='computer';format.value='png';}
   const refresh=()=>{
     const type=format.value,local=destination.value==='library';
     qualityRow.classList.toggle('save-quality-hidden',!['jpeg','webp'].includes(type));
