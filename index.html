@@ -2096,7 +2096,7 @@ const saveWorkflowDialog = (mode='as') => {
       }else{
         await downloadNamedSave(format,name,options);
         if(!isCopy&&format==='pforge'){
-          state.name=name;state.libraryId=null;setDirty(false);
+          state.name=name;state.libraryId=null;state.cloudId=null;state.cloudOwnerId=null;setDirty(false);
           document.title=state.name+' — PixelForge Studio';updateStatus();scheduleActiveSessionSave();
         }
         toast(isCopy?'Copy downloaded':format==='pforge'?'Editable project downloaded':'File downloaded; the editable original is unchanged');
@@ -2527,10 +2527,12 @@ const openAccountDialog=()=>{
     $('#modalAccountSignOut')?.addEventListener('click',async()=>{closeModal();await signOutCloud();});
     return;
   }
-  const configured=cloudConfigured()&&!cloudBootError;
+  const configured=!!cloudClient&&!cloudBootError;
   const info=!cloudConfigured()
     ?'Cloud accounts are not active yet. Connect a Supabase project and configure its public URL and publishable key to enable real sign-in. Your device projects are still usable.'
-    :cloudBootError?'Cloud connection failed: '+escapeHTML(cloudBootError):'Email/password and Google use the same private PixelForge account. Your files stay private to that signed-in account.';
+    :cloudBootError?'Cloud connection failed: '+escapeHTML(cloudBootError)
+    :!cloudClient?'Connecting to cloud authentication. Close this dialog and reopen it in a moment.'
+    :'Email/password and Google use the same private PixelForge account. Your files stay private to that signed-in account.';
   openModal('<div class="auth-modal">'+modalHead('Sign in to PixelForge','Use an existing account or create a new one')
     +'<div class="auth-message" id="authMessage">'+info+'</div>'
     +'<button type="button" class="auth-google" id="authGoogle" '+(configured?'':'disabled')+'>Continue with Google</button>'
