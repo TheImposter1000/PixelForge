@@ -1832,31 +1832,40 @@ const cleanSaveName = raw => String(raw||'').trim()
   .replace(/\.(?:pforge|psd|png|jpe?g|webp|gif|bmp|tiff?|tga|pdf)$/i,'')
   .replace(/[\\/:*?"<>|\x00-\x1F]/g,'-').replace(/\s+/g,' ').trim().slice(0,80);
 // Offline, single-image encoders for Save As. No external services or libraries.
-function encodeStaticGif(image){
-  const w=image.width,h=image.height;
+function encodeStaticGif(image,{colors=256,dither=false,alphaThreshold=128}={}){
+  const w=image.width,h=image.height,pixels=image.data;
   if(w*h>6000000||w>65535||h>65535)throw new Error('GIF export supports up to 6 megapixels');
-  const pixels=image.data,palette=new Uint8Array(768),indexed=new Uint8Array(w*h);
+  const tableSize=[16,32,64,128,256].includes(Number(colors))?Number(colors):256;
+  const tableBits=Math.log2(tableSize),redBits=Math.ceil(tableBits/3);
+  const greenBits=Math.ceil((tableBits-redBits)/2),blueBits=tableBits-redBits-greenBits;
+  const rMax=(1<<redBits)-1,gMax=(1<<greenBits)-1,bMax=(1<<blueBits)-1;
+  const palette=new Uint8Array(tableSize*3),indexed=new Uint8Array(w*h);
+  for(let code=0;code<tableSize;code++){
+    const rr=code>>(greenBits+blueBits),gg=(code>>blueBits)&gMax,bb=code&bMax;
+    palette[code*3]=Math.round(rr*255/rMax);
+    palette[code*3+1]=Math.round(gg*255/gMax);
+    palette[code*3+2]=Math.round(bb*255/bMax);
+  }
+  const transparentIndex=tableSize-1,bayer=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
   let transparent=false;
-  for(let i=1;i<256;i++){
-    const q=Math.round((i-1)*255/254);
-    palette[i*3]=Math.round(((q>>5)&7)*255/7);
-    palette[i*3+1]=Math.round(((q>>2)&7)*255/7);
-    palette[i*3+2]=(q&3)*85;
+  const threshold=Math.max(0,Math.min(255,Number(alphaThreshold)||0));
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const j=y*w+x,i=j*4;
+    if(pixels[i+3]<threshold){indexed[j]=transparentIndex;transparent=true;continue;}
+    const shift=dither?(bayer[(y&3)*4+(x&3)]-7.5)/16:0;
+    const quant=(c,levels)=>Math.max(0,Math.min(levels,Math.round((Math.max(0,Math.min(255,c+shift*255/levels)))*levels/255)));
+    const r=quant(pixels[i],rMax),g=quant(pixels[i+1],gMax),b=quant(pixels[i+2],bMax);
+    const index=(r<<(greenBits+blueBits))|(g<<blueBits)|b;
+    indexed[j]=index===transparentIndex?transparentIndex-1:index;
   }
-  for(let i=0,j=0;i<pixels.length;i+=4,j++){
-    if(pixels[i+3]<128){indexed[j]=0;transparent=true;continue;}
-    const q=((pixels[i]>>5)<<5)|((pixels[i+1]>>5)<<2)|(pixels[i+2]>>6);
-    indexed[j]=1+Math.round(q*254/255);
-  }
-  const bytes=[];
-  const str=value=>{for(let i=0;i<value.length;i++)bytes.push(value.charCodeAt(i));};
+  const bytes=[],str=value=>{for(let i=0;i<value.length;i++)bytes.push(value.charCodeAt(i));};
   const short=n=>{bytes.push(n&255,(n>>>8)&255);};
-  str('GIF89a');short(w);short(h);bytes.push(0xf7,0,0);
-  for(let i=0;i<palette.length;i++)bytes.push(palette[i]);
-  bytes.push(0x21,0xf9,4,transparent?1:0,0,0,0,0);
-  bytes.push(0x2c);short(0);short(0);short(w);short(h);bytes.push(0,8);
-  const chunks=[],clear=256,end=257;
-  let dict=new Map(),next=258,size=9,acc=0,bits=0;
+  str('GIF89a');short(w);short(h);bytes.push(0xf0|(tableBits-1),0,0);
+  for(const b of palette)bytes.push(b);
+  bytes.push(0x21,0xf9,4,transparent?1:0,0,0,transparentIndex,0);
+  bytes.push(0x2c);short(0);short(0);short(w);short(h);bytes.push(0,tableBits);
+  const chunks=[],clear=1<<tableBits,end=clear+1;
+  let dict=new Map(),next=end+1,size=tableBits+1,acc=0,bits=0;
   const emit=code=>{acc|=code<<bits;bits+=size;while(bits>=8){chunks.push(acc&255);acc>>>=8;bits-=8;}};
   emit(clear);
   if(indexed.length){
@@ -1866,7 +1875,7 @@ function encodeStaticGif(image){
       if(match!==undefined){prefix=match;continue;}
       emit(prefix);
       if(next<4096){dict.set(key,next++);if(next>(1<<size)&&size<12)size++;}
-      else {emit(clear);dict=new Map();next=258;size=9;}
+      else{emit(clear);dict=new Map();next=end+1;size=tableBits+1;}
       prefix=k;
     }
     emit(prefix);
@@ -1894,14 +1903,16 @@ function encodeBitmapBmp(image){
   }
   return new Blob([bytes],{type:'image/bmp'});
 }
-function encodeTarga(image){
-  const w=image.width,h=image.height,p=image.data;
+function encodeTarga(image,depth=32){
+  const w=image.width,h=image.height,p=image.data,bpp=depth===24?3:4;
   if(w*h>16000000||w>65535||h>65535)throw new Error('TGA export supports up to 16 megapixels');
-  const bytes=new Uint8Array(18+p.length);
+  const bytes=new Uint8Array(18+w*h*bpp);
   bytes[2]=2;bytes[12]=w&255;bytes[13]=w>>8;bytes[14]=h&255;bytes[15]=h>>8;
-  bytes[16]=32;bytes[17]=0x28;
-  for(let i=0;i<p.length;i+=4){
-    const j=18+i;bytes[j]=p[i+2];bytes[j+1]=p[i+1];bytes[j+2]=p[i];bytes[j+3]=p[i+3];
+  bytes[16]=bpp*8;bytes[17]=0x20|(bpp===4?8:0);
+  for(let j=0;j<w*h;j++){
+    const i=j*4,o=18+j*bpp;
+    bytes[o]=p[i+2];bytes[o+1]=p[i+1];bytes[o+2]=p[i];
+    if(bpp===4)bytes[o+3]=p[i+3];
   }
   return new Blob([bytes],{type:'image/x-tga'});
 }
@@ -1928,8 +1939,8 @@ function encodeTiff(image,ppi=72){
   bytes.set(p,offset);
   return new Blob([bytes],{type:'image/tiff'});
 }
-async function encodeImagePdf(canvas,ppi=72){
-  const jpeg=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('JPEG encoding failed')),'image/jpeg',.95));
+async function encodeImagePdf(canvas,ppi=72,quality=92){
+  const jpeg=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('JPEG encoding failed')),'image/jpeg',clamp(Number(quality)/100,.1,1)));
   const jpg=new Uint8Array(await jpeg.arrayBuffer()),enc=new TextEncoder(),parts=[],offsets=[0];
   let position=0;
   const push=data=>{const bytes=typeof data==='string'?enc.encode(data):data;parts.push(bytes);position+=bytes.length;};
@@ -1950,7 +1961,8 @@ async function encodeImagePdf(canvas,ppi=72){
   push('trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF\n');
   return new Blob(parts,{type:'application/pdf'});
 }
-const downloadNamedSave = async (format,name,quality=92,transparency=true) => {
+const downloadNamedSave = async (format,name,options={}) => {
+  const {quality=92,transparency=true,scale=1,matte='#ffffff',gifColors=256,gifDither=false,gifThreshold=128,tgaDepth=32,outputDpi=state.resolution}=options;
   const basename=cleanSaveName(name)||'Untitled';
   if(format==='pforge'){
     const data=projectDataFromState();data.name=basename;
@@ -1966,18 +1978,23 @@ const downloadNamedSave = async (format,name,quality=92,transparency=true) => {
   }
   const available=['png','jpeg','webp','gif','bmp','tiff','tga','pdf'];
   if(!available.includes(format))throw new Error('Unsupported save format');
-  const out=makeCanvas(),ctx=out.getContext('2d');
-  const opaque=['jpeg','bmp','pdf'].includes(format)||!transparency;
-  drawLayers(ctx,{showPreview:false,background:opaque?'#ffffff':null});
+  const factor=[.5,1,2].includes(Number(scale))?Number(scale):1;
+  const width=Math.max(1,Math.round(state.width*factor)),height=Math.max(1,Math.round(state.height*factor));
+  const maxPixels=format==='gif'?6000000:['bmp','tiff','tga','pdf'].includes(format)?16000000:36000000;
+  if(width*height>maxPixels||width>10000||height>10000)throw new Error('Output too large for '+format.toUpperCase()+'. Reduce the output scale.');
+  const out=makeCanvas(width,height),ctx=out.getContext('2d');
+  const opaque=['jpeg','bmp','pdf'].includes(format)||!transparency||(format==='tga'&&Number(tgaDepth)===24);
+  const background=/^#[0-9a-f]{6}$/i.test(matte)?matte:'#ffffff';
+  ctx.scale(width/state.width,height/state.height);
+  drawLayers(ctx,{showPreview:false,background:opaque?background:null});
+  ctx.setTransform(1,0,0,1,0,0);
   let blob;
-  if(format==='gif')blob=encodeStaticGif(ctx.getImageData(0,0,state.width,state.height));
-  else if(format==='bmp')blob=encodeBitmapBmp(ctx.getImageData(0,0,state.width,state.height));
-  else if(format==='tiff')blob=encodeTiff(ctx.getImageData(0,0,state.width,state.height),state.resolution);
-  else if(format==='tga')blob=encodeTarga(ctx.getImageData(0,0,state.width,state.height));
-  else if(format==='pdf'){
-    if(state.width*state.height>16000000)throw new Error('PDF export supports up to 16 megapixels');
-    blob=await encodeImagePdf(out,state.resolution);
-  }else{
+  if(format==='gif')blob=encodeStaticGif(ctx.getImageData(0,0,width,height),{colors:Number(gifColors),dither:!!gifDither,alphaThreshold:Number(gifThreshold)});
+  else if(format==='bmp')blob=encodeBitmapBmp(ctx.getImageData(0,0,width,height));
+  else if(format==='tiff')blob=encodeTiff(ctx.getImageData(0,0,width,height),Number(outputDpi));
+  else if(format==='tga')blob=encodeTarga(ctx.getImageData(0,0,width,height),Number(tgaDepth));
+  else if(format==='pdf')blob=await encodeImagePdf(out,Number(outputDpi),Number(quality));
+  else{
     const mime=format==='jpeg'?'image/jpeg':format==='webp'?'image/webp':'image/png';
     blob=await new Promise((resolve,reject)=>out.toBlob(
       result=>result?resolve(result):reject(new Error('Could not encode image')),mime,clamp(Number(quality)/100,.1,1)
@@ -2062,7 +2079,7 @@ const saveWorkflowDialog = (mode='as') => {
   refresh();
 };
 const exportSavedFormat = async format => {
-  try{await downloadNamedSave(format,state.name);toast(format.toUpperCase()+' exported');}
+  try{await downloadNamedSave(format,state.name,{});toast(format.toUpperCase()+' exported');}
   catch(err){console.error('Export failed',err);toast('Export failed: '+err.message);}
 };
 const saveProject = () => state.libraryId?saveProjectToLibrary():saveWorkflowDialog('first');
