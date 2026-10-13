@@ -1998,3 +1998,14 @@ const setupKeys = () => {
   window.addEventListener('blur',()=>{panHolding=false;});
   window.addEventListener('paste',async e=>{
     if(modalOpen||['input','textarea'].includes(e.target?.tagName?.toLowerCase()))return;
+    const files=[...(e.clipboardData?.files||[])].filter(f=>f.type.startsWith('image/'));
+    if(files.length){e.preventDefault();for(const f of files)await importImage(f);}else if(internalClipboard){e.preventDefault();pasteSelection();}
+  });
+};
+const init = () => {setupUI();setupPointers();setupKeys();createBaseDocument(1280,800,false,'Untitled-1');window.addEventListener('resize',()=>{if(state.zoom*state.width>viewport.clientWidth*1.6)fitZoom();});};
+init();
+})();
+
+</script>
+</body>
+</html>
