@@ -1426,8 +1426,10 @@ const customDocumentDialog = () => {
     const w=Math.round(Number(data.get('width'))*factor),h=Math.round(Number(data.get('height'))*factor);
     if(!validSize(w,h))return;
     const bg=String(data.get('background'));
-    createBaseDocument(w,h,bg==='transparent',String(data.get('name')).trim()||'Untitled-1',bg==='black'?'#000000':bg==='custom'?String(data.get('bgColor')):'#ffffff',ppi);
-    closeModal();toast(`Created custom document · ${w} × ${h}px`);
+    createBaseDocument(w,h,bg==='transparent',String(data.get('name')).trim()||'Untitled-1',bg==='black'?'#000000':bg==='custom'?String(data.get('bgColor')):'#ffffff',ppi,false);
+    closeModal();
+    showEditor();
+    toast(`Created custom document · ${w} × ${h}px`);
   });
   const form=$('#modalContent form'),field=name=>form.elements.namedItem(name);
   const updateSummary=()=>{
@@ -1472,9 +1474,11 @@ const newDocumentDialog = () => {
     const w=Math.round(Number(data.get('width'))*pxFactor),h=Math.round(Number(data.get('height'))*pxFactor);
     if(!validSize(w,h))return;
     const bg=String(data.get('background'));
-    createBaseDocument(w,h,bg==='transparent',String(data.get('name')).trim()||'Untitled-1',bg==='black'?'#000000':bg==='custom'?String(data.get('bgColor')):'#ffffff',ppi);
+    createBaseDocument(w,h,bg==='transparent',String(data.get('name')).trim()||'Untitled-1',bg==='black'?'#000000':bg==='custom'?String(data.get('bgColor')):'#ffffff',ppi,false);
     try{localStorage.setItem('pixelforge:lastPreset',JSON.stringify({name:state.name,w,h,ppi}));}catch{}
-    closeModal();toast(`Created ${w} × ${h} RGB document`);
+    closeModal();
+    showEditor();
+    toast(`Created ${w} × ${h} RGB document`);
   });
   const modal=$('#modalContent');modal.classList.add('newdoc-modal');
   const form=modal.querySelector('form');
@@ -1729,8 +1733,17 @@ const removeLibraryProject = async id => {
   try{await libraryTransaction('readwrite',store=>store.delete(id));if(state.libraryId===id)state.libraryId=null;await renderHomeLibrary();toast('Project removed from library');}
   catch(err){console.error(err);toast('Could not remove project');}
 };
-const showEditor = () => {appShell.classList.remove('home-mode');homeScreen.classList.add('hidden');requestAnimationFrame(()=>{resizeStage();fitZoom();renderAll();});};
-const showHome = async () => {closeMenus();appShell.classList.add('home-mode');homeScreen.classList.remove('hidden');await renderHomeLibrary();};
+const showEditor = () => {
+  appShell.classList.remove('home-mode');
+  homeScreen.classList.add('hidden');
+  document.title=`${state.name||'Untitled'} — PixelForge Studio`;
+  requestAnimationFrame(()=>{resizeStage();fitZoom();renderAll();});
+};
+const showHome = async () => {
+  closeMenus();appShell.classList.add('home-mode');homeScreen.classList.remove('hidden');
+  document.title='PixelForge Studio — Home';
+  await renderHomeLibrary();
+};
 const renderHomeLibrary = async () => {
   const grid=$('#homeLibraryGrid'),count=$('#homeLibraryCount');if(!grid||!count)return;
   try{
