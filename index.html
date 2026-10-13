@@ -196,6 +196,23 @@
 .navigator-section,
 .history-section{display:none!important}
 
+
+/* Account and cloud library interface */
+.home-account{padding:0 5px;display:flex;flex-direction:column;gap:7px;min-width:0}
+.home-account>span{overflow-wrap:anywhere;font-size:11px;color:#b9bdcc;padding:6px 7px}
+.home-sidebar .home-account button{display:block;background:#34303f;border:1px solid #5b527c;color:#e8e0ff;text-align:center;padding:9px 6px}
+.home-sidebar .home-account button:hover{background:#453957}
+.home-cloud-section{margin-bottom:38px}
+.auth-modal .auth-switch{display:flex;gap:6px;margin:0 0 18px}
+.auth-modal .auth-switch button{flex:1;border:1px solid #454658;background:#272a34;border-radius:6px;color:#aab0c5;padding:9px}
+.auth-modal .auth-switch button.active{background:#54447b;border-color:#9b82f2;color:#fff}
+.auth-modal .auth-google{display:block;width:100%;border:1px solid #646578;border-radius:7px;background:#f1f1f5;color:#272831;padding:11px;font-weight:700;margin:14px 0}
+.auth-modal .auth-divider{display:flex;align-items:center;gap:11px;color:#8e92a4;font-size:10px;margin:12px 0}
+.auth-modal .auth-divider:before,.auth-modal .auth-divider:after{content:'';height:1px;background:#474859;flex:1}
+.auth-modal .auth-message{border:1px solid #45485a;background:#1b1d26;border-radius:7px;padding:11px;font-size:11px;color:#bcbfd1;line-height:1.6;margin:10px 0}
+.auth-modal .auth-message a{color:#b7a1ff}
+.auth-modal label{margin-bottom:13px}
+.auth-modal .auth-error{font-size:11px;color:#fbb0bb;margin-top:8px}
 /* PixelForge Home / project browser */
 .brand{cursor:pointer}
 .home-screen{flex:1;min-height:0;display:grid;grid-template-columns:230px minmax(0,1fr);background:#191a20;color:#ececf2;overflow:hidden}
@@ -313,6 +330,12 @@
         <button id="homePresets"><svg><use href="#i-grid"/></svg> New from presets</button>
         <div class="home-nav-title">FILES</div>
         <button id="homeYourFiles"><svg><use href="#i-folder"/></svg> Your PixelForge files</button>
+        <button id="homeCloudFiles"><svg><use href="#i-folder"/></svg> Cloud files</button>
+        <div class="home-nav-title">ACCOUNT</div>
+        <div class="home-account"><span id="homeAccountStatus">Local workspace</span>
+          <button id="homeAccountButton" class="home-account-button">Sign in / Create account</button>
+          <button id="homeSignOut" class="hidden">Sign out</button>
+        </div>
         <div class="home-storage-note">Projects saved to the PixelForge Library stay in this browser on this device. Download a .pforge copy for backup or transfer.</div>
       </aside>
       <main class="home-main">
@@ -322,7 +345,11 @@
           <button class="home-action" id="homeActionPreset">Browse presets</button>
           <button class="home-action" id="homeActionOpen">Open file</button>
         </div>
-        <div class="home-section-head"><h2>Recent & saved projects</h2><span id="homeLibraryCount">0 projects</span></div>
+        <section class="home-cloud-section" id="homeCloudSection">
+          <div class="home-section-head"><h2>My cloud projects</h2><span id="homeCloudCount">Sign in to sync</span></div>
+          <div class="home-library-grid" id="homeCloudGrid"><div class="home-empty"><strong>Account storage</strong>Sign in to access your projects from different devices.</div></div>
+        </section>
+        <div class="home-section-head"><h2>Saved on this device</h2><span id="homeLibraryCount">0 projects</span></div>
         <div class="home-library-grid" id="homeLibraryGrid"><div class="home-empty"><strong>No saved PixelForge projects yet</strong>Save a project with Ctrl + S and it will appear here.</div></div>
       </main>
     </section>
@@ -399,6 +426,7 @@
   <input id="psdInput" type="file" accept=".psd,image/vnd.adobe.photoshop" hidden>
   <div class="modal-backdrop hidden" id="modalBackdrop" role="dialog" aria-modal="true"><div class="modal" id="modalContent"></div></div>
   <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+  <script src="cloud-config.js"></script>
   <script>
 /* PixelForge PSD I/O: standalone 8-bit RGB PSD codec (no network dependencies).
    Supports raster layers, merged preview, blend modes, transparency, visibility,
@@ -662,7 +690,7 @@ const tools = {
   gradient:'Gradient', eyedropper:'Eyedropper', text:'Text', rect:'Rectangle', ellipse:'Ellipse', hand:'Hand', zoom:'Zoom'
 };
 const state = {
-  width:1280,height:800,name:'Untitled design',resolution:72,layers:[],activeId:null,selectedIds:[],tool:'move',
+  width:1280,height:800,name:'Untitled design',resolution:72,layers:[],activeId:null,selectedIds:[],cloudId:null,cloudOwnerId:null,tool:'move',
   color:'#8b5cf6',secondary:'#ffffff',brushSize:22,brushOpacity:100,fillTolerance:32,
   shapeFilled:true,strokeWidth:5,zoom:1,panX:0,panY:0,selection:null,cropRect:null,
   adjustments:{brightness:0,contrast:0,saturation:0,hue:0}
@@ -868,7 +896,7 @@ const createBaseDocument = (w=1280,h=800,transparent=false,name='Untitled design
   if(!transparent){const b=bg.canvas.getContext('2d');b.fillStyle=backgroundColor;b.fillRect(0,0,w,h);bg.bounds={x:0,y:0,w,h};}
   state.layers.push(bg);
   const paint=makeLayer('Layer 1');state.layers.push(paint);setSingleLayerSelection(paint.id);
-  state.libraryId=null;history=[];historyIndex=-1;resetAdjustments(false);resizeStage();fitZoom();record('New document');setDirty(false);
+  state.libraryId=null;state.cloudId=null;state.cloudOwnerId=null;history=[];historyIndex=-1;resetAdjustments(false);resizeStage();fitZoom();record('New document');setDirty(false);
   if(enterEditor)showEditor();
 };
 const addLayer = (name,options={},doRecord=true) => {
@@ -1699,7 +1727,7 @@ const openPSDFile = async file => {
     }
     state.width=documentData.width;state.height=documentData.height;state.resolution=72;
     state.name=file.name.replace(/\.psd$/i,'').slice(0,80)||'Imported PSD';
-    state.layers=loaded;setSingleLayerSelection(loaded[loaded.length-1].id);state.libraryId=null;
+    state.layers=loaded;setSingleLayerSelection(loaded[loaded.length-1].id);state.libraryId=null;state.cloudId=null;state.cloudOwnerId=null;
     state.selection=null;state.cropRect=null;history=[];historyIndex=-1;
     resetAdjustments(false);resizeStage();fitZoom();record('Open PSD');setDirty(false);showEditor();
     toast(`Opened ${file.name} with ${loaded.length} layers`);
@@ -1743,7 +1771,7 @@ const projectDataFromState = () => ({
 const saveActiveSessionNow = async () => {
   if(appShell.classList.contains('home-mode')||!state.layers.length)return;
   try{
-    const recovery={id:PF_SESSION_ID,name:state.name||'Untitled',libraryId:state.libraryId||null,width:state.width,height:state.height,updatedAt:Date.now(),project:projectDataFromState()};
+    const recovery={id:PF_SESSION_ID,name:state.name||'Untitled',libraryId:state.libraryId||null,cloudId:state.cloudId||null,cloudOwnerId:state.cloudOwnerId||null,width:state.width,height:state.height,updatedAt:Date.now(),project:projectDataFromState()};
     await libraryTransaction('readwrite',store=>store.put(recovery));
   }catch(err){console.warn('PixelForge recovery save failed',err);}
 };
@@ -1785,7 +1813,7 @@ const saveProjectToLibrary = async ({name=state.name,newFile=false,copy=false}={
     const record={id,name:cleanName,width:state.width,height:state.height,updatedAt:Date.now(),thumbnail:projectThumbnail(),project};
     await libraryTransaction('readwrite',store=>store.put(record));
     if(!copy){
-      state.name=cleanName;state.libraryId=id;setDirty(false);
+      state.name=cleanName;state.libraryId=id;state.cloudId=null;state.cloudOwnerId=null;setDirty(false);
       document.title=state.name+' — PixelForge Studio';updateStatus();scheduleActiveSessionSave();
     }
     toast(copy?'Copy saved to PixelForge Library':'Saved to PixelForge Library');
@@ -1818,6 +1846,7 @@ const showHome = async () => {
   markWorkspaceView('home');
   document.title='PixelForge Studio — Home';
   await renderHomeLibrary();
+  renderCloudProjects();
 };
 const renderHomeLibrary = async () => {
   const grid=$('#homeLibraryGrid'),count=$('#homeLibraryCount');if(!grid||!count)return;
@@ -2150,7 +2179,7 @@ const openProjectData = async (data,displayName='PixelForge project') => {
     if(item.mask){layer.maskCanvas=makeCanvas(data.width,data.height);layer.maskCanvas.getContext('2d').drawImage(await loadCanvasImage(item.mask),0,0);}
     if(layer.type!=='group')determineBounds(layer);loaded.push(layer);
   }
-  state.width=data.width;state.height=data.height;state.resolution=Number(data.resolution)||72;state.name=String(data.name||displayName).slice(0,80);
+  state.width=data.width;state.height=data.height;state.resolution=Number(data.resolution)||72;state.name=String(data.name||displayName).slice(0,80);state.cloudId=null;state.cloudOwnerId=null;
   const ids=new Map(loaded.map(l=>[l.originalId,l.id]));
   for(const l of loaded){l.parentId=ids.get(l.originalParentId)??null;delete l.originalId;delete l.originalParentId;}
   state.layers=loaded;normalizeHierarchy();
@@ -2180,7 +2209,7 @@ const openRasterDocument = async file => {
     state.width=w;state.height=h;state.resolution=72;
     state.name=file.name.replace(/\.[^.]*$/,'').slice(0,80)||'Opened image';
     determineBounds(layer);
-    state.layers=[layer];setSingleLayerSelection(layer.id);state.libraryId=null;
+    state.layers=[layer];setSingleLayerSelection(layer.id);state.libraryId=null;state.cloudId=null;state.cloudOwnerId=null;
     state.selection=null;state.cropRect=null;state.panX=state.panY=0;
     history=[];historyIndex=-1;resetAdjustments(false);
     resizeStage();fitZoom();record('Open original image');setDirty(false);showEditor();
@@ -2420,9 +2449,247 @@ const activateInspectorTab = name => {
   $$('.inspector-tab-panel[data-inspector-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.inspectorPanel===name));
   try{localStorage.setItem('pixelforge:inspectorTab',name);}catch{}
 };
+
+/* Real Supabase authentication and private project storage (inactive until configured). */
+let cloudClient=null,cloudUser=null,cloudBootError='';
+const cloudSettings=()=>window.PIXELFORGE_CLOUD_CONFIG||{};
+const cloudConfigured=()=>{
+  const cfg=cloudSettings();
+  return /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(String(cfg.url||''))
+    && typeof cfg.publishableKey==='string'&&cfg.publishableKey.length>20;
+};
+const cloudIdentity=()=>cloudUser?.id||null;
+const loadCloudSdk=()=>new Promise((resolve,reject)=>{
+  if(window.supabase?.createClient){resolve(window.supabase);return;}
+  const tag=document.createElement('script');
+  tag.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  tag.async=true;
+  tag.onload=()=>window.supabase?.createClient?resolve(window.supabase):reject(new Error('Cloud authentication SDK is unavailable'));
+  tag.onerror=()=>reject(new Error('Could not load cloud authentication SDK'));
+  document.head.append(tag);
+});
+const updateAccountUI=()=>{
+  const account=$('#homeAccountStatus'),button=$('#homeAccountButton'),signOut=$('#homeSignOut');
+  if(!account||!button||!signOut)return;
+  if(cloudUser){
+    account.textContent=cloudUser.email||'Signed in';
+    button.textContent='Manage account';
+    signOut.classList.remove('hidden');
+  }else{
+    account.textContent=cloudConfigured()?'Not signed in':'Cloud service not connected';
+    button.textContent='Sign in / Create account';
+    signOut.classList.add('hidden');
+  }
+};
+const initCloud=async()=>{
+  if(!cloudConfigured()){updateAccountUI();return;}
+  try{
+    const sdk=await loadCloudSdk(),cfg=cloudSettings();
+    cloudClient=sdk.createClient(cfg.url,cfg.publishableKey,{
+      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+    });
+    cloudClient.auth.onAuthStateChange((event,session)=>{
+      const prior=cloudUser?.id||null;
+      cloudUser=session?.user||null;
+      if(prior&&prior!==cloudUser?.id){
+        state.cloudId=null;state.cloudOwnerId=null;
+      }
+      updateAccountUI();
+      if(appShell.classList.contains('home-mode'))renderCloudProjects();
+    });
+    const {data,error}=await cloudClient.auth.getSession();
+    if(error)throw error;
+    cloudUser=data.session?.user||null;
+    updateAccountUI();
+    if(appShell.classList.contains('home-mode'))renderCloudProjects();
+  }catch(err){
+    cloudBootError=err.message||'Could not connect to cloud authentication';
+    console.error('PixelForge cloud initialization failed',err);
+    updateAccountUI();
+    if(appShell.classList.contains('home-mode'))renderCloudProjects();
+  }
+};
+const accountErrorText=(error)=>String(error?.message||'The account request could not be completed.').slice(0,250);
+const openAccountDialog=()=>{
+  if(cloudUser){
+    openModal('<div class="auth-modal">'+modalHead('Your PixelForge account','Cloud authentication and private project files')
+      +'<div class="auth-message">Signed in as <strong>'+escapeHTML(cloudUser.email||'PixelForge user')+'</strong>.<p>Private cloud projects can be opened from Home or saved using File > Save As.</p></div>'
+      +'<div class="modal-actions"><button type="button" id="modalAccountSignOut">Sign out</button><button type="button" data-close>Close</button></div></div>');
+    $('#modalAccountSignOut')?.addEventListener('click',async()=>{closeModal();await signOutCloud();});
+    return;
+  }
+  const configured=cloudConfigured()&&!cloudBootError;
+  const info=!cloudConfigured()
+    ?'Cloud accounts are not active yet. Connect a Supabase project and configure its public URL and publishable key to enable real sign-in. Your device projects are still usable.'
+    :cloudBootError?'Cloud connection failed: '+escapeHTML(cloudBootError):'Email/password and Google use the same private PixelForge account. Your files stay private to that signed-in account.';
+  openModal('<div class="auth-modal">'+modalHead('Sign in to PixelForge','Use an existing account or create a new one')
+    +'<div class="auth-message" id="authMessage">'+info+'</div>'
+    +'<button type="button" class="auth-google" id="authGoogle" '+(configured?'':'disabled')+'>Continue with Google</button>'
+    +'<div class="auth-divider">OR USE EMAIL</div>'
+    +'<div class="auth-switch"><button class="active" id="authSignInTab" type="button">Sign in</button><button id="authSignUpTab" type="button">Create account</button></div>'
+    +'<form id="cloudAuthForm"><label>Email address<input name="email" type="email" autocomplete="username" required '+(configured?'':'disabled')+'></label>'
+    +'<label>Password<input name="password" type="password" minlength="8" autocomplete="current-password" required '+(configured?'':'disabled')+'></label>'
+    +'<div class="auth-error" id="authError" role="status"></div>'
+    +'<div class="modal-actions"><button type="button" data-close>Cancel</button><button id="cloudAuthSubmit" type="submit" class="confirm" '+(configured?'':'disabled')+'>Sign in</button></div>'
+    +'</form></div>');
+  let mode='signin';
+  const setMode=next=>{
+    mode=next;
+    $('#authSignInTab').classList.toggle('active',mode==='signin');
+    $('#authSignUpTab').classList.toggle('active',mode==='signup');
+    $('#cloudAuthSubmit').textContent=mode==='signup'?'Create account':'Sign in';
+    $('#cloudAuthForm').elements.namedItem('password').autocomplete=mode==='signup'?'new-password':'current-password';
+    $('#authError').textContent='';
+  };
+  $('#authSignInTab').addEventListener('click',()=>setMode('signin'));
+  $('#authSignUpTab').addEventListener('click',()=>setMode('signup'));
+  $('#authGoogle').addEventListener('click',async()=>{
+    if(!cloudClient)return;
+    try{
+      $('#authGoogle').disabled=true;
+      const {error}=await cloudClient.auth.signInWithOAuth({
+        provider:'google',
+        options:{redirectTo:location.origin+location.pathname}
+      });
+      if(error)throw error;
+    }catch(error){$('#authError').textContent=accountErrorText(error);$('#authGoogle').disabled=false;}
+  });
+  const form=$('#cloudAuthForm');
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(!cloudClient)return;
+    const email=String(form.elements.namedItem('email').value||'').trim();
+    const password=String(form.elements.namedItem('password').value||'');
+    const submit=$('#cloudAuthSubmit');
+    if(!email||!password)return;
+    submit.disabled=true;$('#authError').textContent='';
+    try{
+      const {data,error}=mode==='signup'
+        ?await cloudClient.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}})
+        :await cloudClient.auth.signInWithPassword({email,password});
+      if(error)throw error;
+      if(mode==='signup'&&!data.session){
+        $('#authMessage').textContent='Check your inbox and confirm your email address, then sign in.';
+        $('#cloudAuthSubmit').disabled=false;
+        setMode('signin');
+        return;
+      }
+      cloudUser=data.user||data.session?.user||null;
+      closeModal();updateAccountUI();
+      if(appShell.classList.contains('home-mode'))renderCloudProjects();
+      toast('Signed in to PixelForge');
+    }catch(error){
+      $('#authError').textContent=accountErrorText(error);
+      submit.disabled=false;
+    }
+  });
+};
+const signOutCloud=async()=>{
+  if(!cloudClient)return;
+  try{
+    const {error}=await cloudClient.auth.signOut();
+    if(error)throw error;
+    cloudUser=null;state.cloudId=null;state.cloudOwnerId=null;
+    updateAccountUI();
+    if(appShell.classList.contains('home-mode'))renderCloudProjects();
+    toast('Signed out. The current document remains on this device.');
+  }catch(error){toast('Sign out failed: '+accountErrorText(error));}
+};
+const saveCloudProject=async({name=state.name,newFile=false,copy=false}={})=>{
+  if(!cloudClient||!cloudUser){toast('Sign in to save a cloud project');openAccountDialog();return false;}
+  const owner=cloudUser.id,existing=!newFile&&!copy&&state.cloudOwnerId===owner?state.cloudId:null;
+  const id=existing||crypto.randomUUID(),path=owner+'/'+id+'.pforge';
+  const cleanName=String(name||'Untitled').trim().slice(0,80)||'Untitled';
+  try{
+    const project=projectDataFromState();project.name=cleanName;
+    const serialized=JSON.stringify(project);
+    if(new Blob([serialized]).size>30*1024*1024)throw new Error('Cloud project exceeds the 30 MB limit. Download a local .pforge backup instead.');
+    const {error:uploadError}=await cloudClient.storage.from('pixelforge-projects')
+      .upload(path,new Blob([serialized],{type:'application/json'}),{contentType:'application/json',upsert:true,cacheControl:'0'});
+    if(uploadError)throw uploadError;
+    const record={id,user_id:owner,name:cleanName,width:state.width,height:state.height,
+      thumbnail:projectThumbnail(),storage_path:path,updated_at:new Date().toISOString()};
+    const {error:dbError}=await cloudClient.from('pixelforge_projects').upsert(record,{onConflict:'id'});
+    if(dbError)throw dbError;
+    if(!copy){
+      state.cloudId=id;state.cloudOwnerId=owner;state.libraryId=null;state.name=cleanName;
+      setDirty(false);document.title=state.name+' — PixelForge Studio';updateStatus();scheduleActiveSessionSave();
+    }
+    if(appShell.classList.contains('home-mode'))renderCloudProjects();
+    toast(copy?'Cloud copy created':'Saved to your private cloud projects');
+    return true;
+  }catch(error){
+    console.error('Cloud save failed',error);
+    toast('Cloud save failed: '+accountErrorText(error));
+    return false;
+  }
+};
+const renderCloudProjects=async()=>{
+  const grid=$('#homeCloudGrid'),count=$('#homeCloudCount');
+  if(!grid||!count)return;
+  if(!cloudUser){
+    count.textContent=cloudConfigured()?'Sign in to sync':'Cloud not connected';
+    grid.innerHTML='<div class="home-empty"><strong>Private cloud projects</strong>'+ (cloudConfigured()?'Sign in with Google or email to see your files.':'Connect Supabase to activate account saving. Local files are unaffected.')+'</div>';
+    return;
+  }
+  if(!cloudClient){count.textContent='Connecting…';return;}
+  count.textContent='Loading…';
+  try{
+    const {data,error}=await cloudClient.from('pixelforge_projects').select('id,name,width,height,thumbnail,updated_at')
+      .order('updated_at',{ascending:false}).limit(100);
+    if(error)throw error;
+    if(!cloudUser)return;
+    count.textContent=data.length+' project'+(data.length===1?'':'s');
+    grid.innerHTML=data.length?data.map(item=>{
+      const thumbnail=String(item.thumbnail||'');
+      const image=thumbnail.startsWith('data:image/jpeg;base64,')
+        ?'<img src="'+escapeHTML(thumbnail)+'" alt="">':'<span class="empty-thumb">◇</span>';
+      return '<article class="home-project-card" data-cloud-id="'+escapeHTML(item.id)+'">'
+        +'<div class="home-project-thumb" data-cloud-action="open">'+image+'</div>'
+        +'<div class="home-project-meta"><strong>'+escapeHTML(item.name||'Untitled')+'</strong><small>'
+        +Number(item.width)+' × '+Number(item.height)+' px</small><small>Saved '
+        +escapeHTML(new Date(item.updated_at).toLocaleString())+'</small>'
+        +'<div class="home-project-actions"><button data-cloud-action="open">Open</button>'
+        +'<button class="delete" data-cloud-action="delete">Delete</button></div></div></article>';
+    }).join(''):'<div class="home-empty"><strong>No cloud projects yet</strong>Choose File > Save As and select My Cloud to save your first document.</div>';
+  }catch(error){
+    console.error('Could not list cloud projects',error);
+    count.textContent='Cloud unavailable';
+    grid.innerHTML='<div class="home-empty"><strong>Cannot load cloud projects</strong>'+escapeHTML(accountErrorText(error))+'</div>';
+  }
+};
+const openCloudProject=async id=>{
+  if(!cloudUser||!cloudClient)return;
+  if(dirty&&!confirm('Discard unsaved changes and open this cloud project?'))return;
+  try{
+    const {data:record,error}=await cloudClient.from('pixelforge_projects')
+      .select('id,name,storage_path').eq('id',id).single();
+    if(error)throw error;
+    const {data:file,error:downloadError}=await cloudClient.storage.from('pixelforge-projects')
+      .download(record.storage_path);
+    if(downloadError)throw downloadError;
+    await openProjectData(JSON.parse(await file.text()),record.name);
+    state.cloudId=record.id;state.cloudOwnerId=cloudUser.id;state.libraryId=null;
+    showEditor();toast('Opened cloud project');
+  }catch(error){console.error('Open cloud project failed',error);toast('Cannot open cloud project: '+accountErrorText(error));}
+};
+const deleteCloudProject=async id=>{
+  if(!cloudUser||!cloudClient)return;
+  if(!confirm('Permanently delete this private cloud project?'))return;
+  try{
+    const {data:record,error}=await cloudClient.from('pixelforge_projects').select('storage_path').eq('id',id).single();
+    if(error)throw error;
+    const {error:removeError}=await cloudClient.from('pixelforge_projects').delete().eq('id',id);
+    if(removeError)throw removeError;
+    const {error:storageError}=await cloudClient.storage.from('pixelforge-projects').remove([record.storage_path]);
+    if(storageError)console.warn('Orphaned storage object after delete',storageError);
+    if(state.cloudId===id){state.cloudId=null;state.cloudOwnerId=null;}
+    await renderCloudProjects();toast('Cloud project deleted');
+  }catch(error){console.error('Cloud delete failed',error);toast('Could not delete cloud project: '+accountErrorText(error));}
+};
 const menuDefinitions = {
   file:[
-    ['Home','',showHome],['---'],['New Custom Document…','Ctrl+N',requestCustomDocument],['New From Presets…','',resetDocument],['Open image or project as document…','Ctrl+O',()=>$('#openInput').click()],['Open PSD…','',()=>$('#psdInput').click()],['Open PixelForge project…','',()=>$('#projectInput').click()],
+    ['Home','',showHome],['Account / Sign in…','',openAccountDialog],['---'],['New Custom Document…','Ctrl+N',requestCustomDocument],['New From Presets…','',resetDocument],['Open image or project as document…','Ctrl+O',()=>$('#openInput').click()],['Open PSD…','',()=>$('#psdInput').click()],['Open PixelForge project…','',()=>$('#projectInput').click()],
     ['---'],['Place image as layer…','',()=>$('#imageInput').click()],['Open sample composition','',()=>{if(!dirty||confirm('Discard unsaved changes and load the sample?'))createDemoProject();}],
     ['---'],['Save','Ctrl+S',saveProject],['Save As…','Ctrl+Shift+S',saveAsDialog],['Save a Copy…','',saveCopyDialog],['Download PixelForge project…','',downloadProject],['---'],['Export','',[
       ['PNG…','',()=>exportImage('png')],['JPEG…','',()=>exportImage('jpeg')],['WebP…','',()=>exportImage('webp')],['GIF (single-frame)…','',()=>exportSavedFormat('gif')],['BMP…','',()=>exportSavedFormat('bmp')],['TIFF…','',()=>exportSavedFormat('tiff')],['Targa (TGA)…','',()=>exportSavedFormat('tga')],['PDF (flattened)…','',()=>exportSavedFormat('pdf')],['Photoshop PSD (layers)…','',exportPSD],['Export options…','',exportDialog]
@@ -2496,6 +2763,15 @@ const setupUI = () => {
   $('#homeOpenComputer').addEventListener('click',()=>$('#openInput').click());
   $('#homeActionOpen').addEventListener('click',()=>$('#openInput').click());
   $('#homeYourFiles').addEventListener('click',()=>$('#homeLibraryGrid').scrollIntoView({behavior:'smooth',block:'start'}));
+  $('#homeCloudFiles').addEventListener('click',()=>$('#homeCloudGrid').scrollIntoView({behavior:'smooth',block:'start'}));
+  $('#homeAccountButton').addEventListener('click',openAccountDialog);
+  $('#homeSignOut').addEventListener('click',signOutCloud);
+  $('#homeCloudGrid').addEventListener('click',e=>{
+    const card=e.target.closest('[data-cloud-id]'),action=e.target.closest('[data-cloud-action]')?.dataset.cloudAction;
+    if(!card||!action)return;
+    if(action==='open')openCloudProject(card.dataset.cloudId);
+    if(action==='delete')deleteCloudProject(card.dataset.cloudId);
+  });
   $('#homeLibraryGrid').addEventListener('click',e=>{
     const card=e.target.closest('[data-library-id]'),action=e.target.closest('[data-home-action]')?.dataset.homeAction;
     if(!card||!action)return;const id=card.dataset.libraryId;
@@ -2771,12 +3047,13 @@ const init = async () => {
   if(lastView==='editor'){
     const recovered=await loadActiveSession();
     if(recovered?.project){
-      try{await openProjectData(recovered.project,recovered.name||'Recovered document');state.libraryId=recovered.libraryId||null;showEditor();}
+      try{await openProjectData(recovered.project,recovered.name||'Recovered document');state.libraryId=recovered.libraryId||null;state.cloudId=recovered.cloudId||null;state.cloudOwnerId=recovered.cloudOwnerId||null;showEditor();}
       catch(err){console.warn('Could not restore active PixelForge document',err);createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();}
     }else{createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();}
   }else{
     createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();
   }
+  initCloud(); // Cloud initializes asynchronously and cannot block local editing.
   window.addEventListener('resize',()=>{if(!appShell.classList.contains('home-mode')&&state.zoom*state.width>viewport.clientWidth*1.6)fitZoom();});
 };
 init();
