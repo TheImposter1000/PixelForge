@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101118">
+  <title>PixelForge Studio — Photo Editor</title>
+  <style>
+:root{color-scheme:dark;--bg:#101118;--top:#171922;--panel:#1b1d27;--panel2:#20232e;--border:#303340;--softborder:#292c38;--muted:#9196a9;--subtle:#6c7185;--text:#e9eaf1;--accent:#8e72ff;--accent2:#a594ff;--raised:#2a2c3b;--radius:8px}*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:12px}button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity:.35;cursor:not-allowed}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}.svg-icons{position:absolute;width:0;height:0;overflow:hidden}.app-shell{height:100dvh;display:flex;flex-direction:column;min-width:840px}.topbar{height:53px;flex-shrink:0;display:flex;align-items:center;gap:13px;padding:0 20px;border-bottom:1px solid #30303b;background:#181a24}.brand{display:flex;align-items:center;gap:10px}.brand-mark{width:30px;height:30px;background:linear-gradient(145deg,#b7a2ff,#7853e5);border-radius:9px;display:inline-grid;place-items:center;color:#fff;font-weight:900;font-size:19px;box-shadow:0 0 15px #8d65ff30;position:relative;letter-spacing:-2px}.brand-mark span{font-size:9px;position:absolute;right:4px;top:1px;letter-spacing:0}.brand-text{font-size:14px;font-weight:750;letter-spacing:-.6px;white-space:nowrap}.brand-text b{color:var(--accent2);font-weight:650}.brand-divider{height:20px;width:1px;background:#383a49;margin-left:10px}.document-title{display:flex;align-items:center;gap:8px;color:#d9dbe5;white-space:nowrap}.unsaved-dot{width:6px;height:6px;border-radius:50%;background:#9e85ff}.document-extension{color:#777b8c;font-size:11px}.header-spacer,.options-spacer,.status-spacer{flex:1}.offline-label{color:#868c9e;font-size:11px;white-space:nowrap;margin-right:6px}.offline-dot{display:inline-block;background:#38c4a1;border-radius:50%;width:6px;height:6px;margin-right:6px}.header-btn{display:flex;align-items:center;justify-content:center;gap:8px;border-radius:7px;height:33px;padding:0 15px;font-weight:650;border:1px solid #383c4d;color:#e4e4ed;background:#292c39;white-space:nowrap}.header-btn svg{width:15px;height:15px}.header-btn.primary{border-color:#a38bff88;background:linear-gradient(135deg,#9477fb,#7957de);color:#fff;box-shadow:0 3px 12px #805ce82e}.header-btn .small-chevron{width:13px;height:13px}.menubar{height:37px;flex-shrink:0;display:flex;align-items:center;gap:1px;background:#1c1e29;padding:0 13px;border-bottom:1px solid var(--border);position:relative;z-index:20}.menu-item{height:100%;display:flex;align-items:center;position:relative}.menu-item>button{background:none;border:0;border-radius:5px;padding:7px 10px;color:#c2c5d2;font-size:12px}.menu-item>button:hover,.menu-item.menu-open>button{background:#343644;color:#fff}.dropdown{display:none;position:absolute;top:33px;left:0;width:234px;padding:6px;background:#252836;border:1px solid #444657;border-radius:8px;box-shadow:0 15px 32px #0007;z-index:30}.menu-item.menu-open .dropdown{display:block}.dropdown button{background:none;border:0;width:100%;color:#e0e1e9;padding:8px 10px;border-radius:5px;display:flex;justify-content:space-between;align-items:center;text-align:left}.dropdown button:hover{background:#453964}.dropdown kbd{color:#9da0b3;font:10px ui-monospace,SFMono-Regular,Consolas,monospace}.dropdown hr{height:1px;border:0;background:#424452;margin:5px 6px}.menu-divider,.status-divider{height:17px;width:1px;background:#404150;margin:0 10px}.mini-icon-btn,.help-btn{border:0;background:transparent;color:#aeb1bf;display:grid;place-items:center;height:28px;width:30px;border-radius:5px}.mini-icon-btn svg{width:16px;height:16px}.mini-icon-btn:hover,.help-btn:hover{background:#383a4c;color:#fff}.menubar-tip{color:#6d7385;margin-left:auto;font-size:11px}.help-btn{border:1px solid #404251;border-radius:50%;height:21px;width:21px;font-weight:700;margin-left:12px}.optionsbar{height:48px;flex-shrink:0;border-bottom:1px solid var(--border);background:#222430;display:flex;align-items:center;padding:0 18px;gap:13px}.options-label{font-weight:700;color:#e0e1ec;min-width:92px}.options-divider{height:22px;width:1px;background:#393c4c}.tool-options{display:flex;align-items:center;gap:14px;min-width:0;white-space:nowrap}.tool-options label{display:flex;align-items:center;gap:9px;color:#9da2b2}.tool-options input[type=number]{width:65px}.tool-options input[type=color]{width:30px;height:26px;padding:2px}.tool-options input[type=range]{width:104px}.tool-options output{color:#ececf4;font-size:11px;min-width:30px}.tool-options button{border:1px solid #404353;background:#2a2d3b;color:#e2e3ed;border-radius:6px;padding:6px 10px}.tool-options button.highlight{background:#56419b;border-color:#7660bf}.options-document-size{color:#878c9e;font-size:11px;white-space:nowrap}.editor-layout{display:flex;flex:1;min-height:0;overflow:hidden}.toolbar{width:62px;flex-shrink:0;background:#1b1d27;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0}.tool-group{display:flex;flex-direction:column;align-items:center;gap:3px}.tool{border:0;position:relative;border-radius:7px;color:#969caf;background:transparent;width:40px;height:39px;display:grid;place-items:center}.tool:hover{background:#2e3140;color:#fff}.tool.active{background:#46386b;color:#bdafff;box-shadow:inset 3px 0 #a48aff}.tool svg{width:20px;height:20px}.tool span{position:absolute;bottom:2px;right:3px;font-size:8px;color:#767e91}.tool.active span{color:#ac9fe0}.tool-separator{width:27px;height:1px;background:#373946;margin:8px 0}.tool-bottom{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:4px}.tool-bottom-swatch{border:1px solid #606274;background:#272834;border-radius:5px;width:32px;height:33px;padding:4px}.tool-bottom-swatch span{display:block;width:100%;height:100%;background:#8b5cf6;border-radius:2px}.tool-bottom-reset{color:#9a9da9;background:none;border:0;font-size:14px}.workspace{position:relative;min-width:150px;flex:1;display:flex;flex-direction:column;background:#171820}.workspace-topnote{height:34px;background:#20212b;display:flex;align-items:center;padding-left:19px;gap:9px;color:#d8dae5;border-bottom:1px solid #343641;font-weight:600;font-size:11px;flex-shrink:0;width:max-content;max-width:100%;min-width:230px;border-right:1px solid #393b48}.worktop-indicator{width:7px;height:7px;border:2px solid #a391ff;border-radius:2px}.workspace-topnote #workspaceZoom{color:#8e92a1;font-weight:400;margin-left:2px}.note-close{color:#9ca1af;margin-left:auto;padding-right:16px;font-size:16px}.canvas-viewport{flex:1;position:relative;overflow:hidden;background-color:#242630;background-image:radial-gradient(#3d3f4b 0.75px,transparent .75px);background-size:17px 17px;touch-action:none}.canvas-stage{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);transform-origin:center;box-shadow:0 10px 45px #0009,0 1px 4px #000b;background:repeating-conic-gradient(#e9e9e9 0% 25%,#fff 0% 50%) 50% / 20px 20px;user-select:none}.canvas-stage canvas{position:absolute;top:0;left:0;width:100%;height:100%;display:block}.canvas-stage #overlayCanvas{cursor:crosshair;touch-action:none}.viewport-shortcut{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:#14151ce8;color:#9298a8;border:1px solid #343641;border-radius:7px;padding:9px 12px;white-space:nowrap;font-size:11px;pointer-events:none}.viewport-shortcut kbd{border:1px solid #4a4c5d;border-radius:4px;color:#dbdce5;background:#333543;padding:2px 5px;font-size:10px}.viewport-shortcut span{padding:0 7px}.drop-overlay{position:absolute;inset:12px;z-index:10;background:#241d39e9;border:2px dashed #a18cfa;border-radius:12px;display:none;flex-direction:column;justify-content:center;align-items:center;gap:12px;pointer-events:none;color:#e8e0ff}.drop-overlay.visible{display:flex}.drop-overlay svg{width:52px;height:52px}.drop-overlay strong{font-size:22px}.drop-overlay span{font-size:12px;color:#bfb0ed}.inspector{width:290px;flex-shrink:0;background:#1c1e28;border-left:1px solid var(--border);overflow-y:auto;scrollbar-color:#424553 #1c1e28;scrollbar-width:thin}.inspector-section{border-bottom:1px solid #343643;padding:14px 15px}.section-heading{display:flex;align-items:center;justify-content:space-between;color:#c2c5d4;font-weight:800;font-size:10px;letter-spacing:1.1px;margin-bottom:13px}.section-sub{font-size:10px;letter-spacing:0;font-weight:500;color:#777d91}.panel-icon{background:none;border:0;color:#8f94aa;width:24px;height:22px;display:inline-grid;place-items:center;border-radius:4px}.panel-icon:hover{background:#383a49;color:#e6e8f6}.panel-icon svg{width:15px;height:15px}.heading-icon{width:14px;height:14px;color:#868b9f}.nav-thumb-container{height:130px;display:flex;align-items:center;justify-content:center;background:#151620;border:1px solid #353744;border-radius:6px;overflow:hidden}.nav-thumb-container canvas{max-width:100%;max-height:100%;object-fit:contain}.navigator-footer{display:flex;align-items:center;gap:11px;margin-top:12px;color:#a5a9b9}.navigator-footer>span{width:33px;font-size:11px}.navigator-footer input{width:100%;flex:1}.navigator-footer button{background:#2b2d3b;border:1px solid #3a3e4d;color:#d6d6e2;border-radius:5px;padding:4px 9px}.color-control{display:flex;gap:10px;align-items:center}.color-control input[type=color]{width:49px;height:47px;border:1px solid #484b5b;padding:3px;border-radius:6px;background:#262938;cursor:pointer}.color-control>div{flex:1;display:flex;flex-direction:column;gap:5px}.tiny-label{color:#71788a;font-weight:700;letter-spacing:1px;font-size:9px}.color-control input[type=text]{border:1px solid #3b3d4c;background:#252733;color:#e8e8f3;border-radius:5px;padding:7px 9px;width:100%;font-size:12px;letter-spacing:.3px}.eyedropper-small{background:#2c2f3c;border:1px solid #414454;color:#abb0c2;width:31px;height:31px;border-radius:6px;display:grid;place-items:center;align-self:flex-end}.eyedropper-small svg{width:16px;height:16px}.swatches{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px}.swatches button{width:19px;height:19px;border-radius:5px;border:1px solid #ffffff55;padding:0}.swatches button.active{outline:2px solid #ddd7ff;outline-offset:2px}.adjustment-row{margin:11px 0}.adjustment-row label{display:flex;justify-content:space-between;color:#aeb2c1;font-size:11px;margin-bottom:8px}.adjustment-row output{font-variant-numeric:tabular-nums;color:#81879c}.adjustment-row input{width:100%;display:block}.adjustments-actions{display:flex;gap:8px;margin-top:15px}.surface-btn{flex:1;border-radius:6px;border:1px solid #424554;background:#303241;color:#d2d4e2;height:30px}.surface-btn.violet{background:#514076;border-color:#735bb0;color:#eadfff}.quick-filters{display:flex;gap:6px;flex-wrap:wrap;margin-top:13px}.quick-filters button{border:1px solid #3e4150;border-radius:5px;background:#282a37;color:#a6acbe;padding:6px 8px;font-size:10px}.quick-filters button:hover{background:#49405e;color:#e8ddff}.layers-heading{margin-bottom:12px}.layer-count{letter-spacing:0;background:#363947;border-radius:5px;color:#acafc2;padding:2px 6px;margin-left:3px;font-size:10px}.heading-actions{display:flex;gap:5px}.layer-props{display:flex;align-items:center;gap:7px;margin-bottom:11px}.layer-props select{width:142px;min-width:0;height:28px;background:#2a2d39;color:#d9dbea;border:1px solid #414352;border-radius:5px;padding:0 7px}.layer-props label{display:flex;align-items:center;gap:4px;font-size:10px;color:#a3a7b7;white-space:nowrap}.layer-props input{width:39px;height:28px;color:#eceaf5;background:#292b37;border:1px solid #444656;border-radius:5px;padding:4px;text-align:center}.layer-list{border:1px solid #353847;border-radius:6px;overflow:hidden;min-height:65px;background:#181a23}.layer-row{height:57px;display:flex;align-items:center;gap:7px;padding:7px;border-bottom:1px solid #2d303d;cursor:pointer}.layer-row:last-child{border-bottom:0}.layer-row.selected{background:#393050;box-shadow:inset 3px 0 #a288fb}.layer-row.drag-target{outline:2px solid #9277ed;outline-offset:-2px}.layer-visibility,.layer-lock{background:none;border:0;width:18px;height:27px;display:grid;place-items:center;padding:0;color:#9196aa;flex-shrink:0}.layer-visibility svg,.layer-lock svg{width:14px;height:14px}.layer-thumb{width:39px;height:39px;flex-shrink:0;border:1px solid #4c4f60;border-radius:4px;display:grid;place-items:center;background:repeating-conic-gradient(#ccc 0% 25%,#f2f2f2 0% 50%) 50% / 10px 10px;overflow:hidden}.layer-thumb canvas{width:100%;height:100%;object-fit:contain}.layer-desc{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}.layer-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#e0e0eb;font-weight:600}.layer-meta{font-size:10px;color:#8c91a4}.layer-footer{display:flex;align-items:center;gap:5px;margin-top:9px}.layer-footer button{width:27px;height:26px;border:0;background:none;color:#999eaf;font-size:16px;border-radius:5px;display:grid;place-items:center}.layer-footer button:hover{background:#343848;color:#eee}.layer-footer svg{width:15px;height:15px}.layer-footer span{flex:1}.history-section{padding-bottom:25px}.history-list{display:flex;flex-direction:column;gap:2px}.history-entry{display:flex;align-items:center;gap:8px;color:#81879c;background:transparent;border:0;text-align:left;padding:7px 9px;border-radius:5px;font-size:11px}.history-entry:hover{background:#2d3040;color:#c9cce0}.history-entry.active{color:#d8cdff;background:#332b46}.history-entry .history-number{color:#6f7386;width:18px}.statusbar{height:30px;flex-shrink:0;background:#171922;border-top:1px solid #333540;display:flex;align-items:center;padding:0 17px;gap:11px;font-size:10px;color:#878d9f}.status-ready{display:flex;align-items:center;gap:7px;color:#b2b7c7}.status-ready i{width:6px;height:6px;background:#46caa1;border-radius:50%}.status-divider{margin:0 1px;height:13px;background:#3c3e4b}.statusbar button{background:none;border:0;color:#aaadbf;font-size:15px;padding:0 4px}.statusbar button:hover{color:#fff}.statusbar #gridBtn svg{width:14px;height:14px}.statusbar #statusZoom{min-width:35px;text-align:center;color:#d1d3e0}.modal-backdrop{position:fixed;inset:0;background:#0c0c13c9;display:flex;justify-content:center;align-items:center;z-index:100;backdrop-filter:blur(5px)}.modal-backdrop.hidden{display:none}.modal{background:#222430;border:1px solid #4b4b60;box-shadow:0 18px 80px #000a;border-radius:14px;min-width:360px;max-width:min(92vw,530px);width:460px;padding:24px}.modal-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:17px}.modal h2{font-size:20px;margin:0 0 6px;font-weight:750;letter-spacing:-.5px}.modal p{font-size:12px;color:#969aae;margin:0;line-height:1.55}.modal-close{background:none;color:#9ca0af;border:0;padding:1px}.modal-close svg{width:20px;height:20px}.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.modal label{display:flex;flex-direction:column;gap:7px;color:#bec1cf;font-size:11px}.modal input,.modal textarea,.modal select{background:#171924;border:1px solid #444659;border-radius:6px;color:#eeecf7;padding:10px;width:100%;outline:0}.modal textarea{resize:vertical;min-height:98px}.modal input:focus,.modal textarea:focus,.modal select:focus{border-color:#8b70f2}.modal .preset-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px}.modal .preset-row button{background:#303241;color:#bfc3d5;border:1px solid #484959;border-radius:6px;padding:9px 12px}.modal .preset-row button.active{border-color:#a48eff;background:#514379;color:#fff}.modal .field-row{display:flex;gap:12px;margin:14px 0}.modal .field-row label{flex:1}.modal .modal-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;margin-top:22px}.modal .modal-actions button{padding:9px 18px;border-radius:7px;border:1px solid #4a4c5d;color:#e1e2ed;background:#353744;font-weight:600}.modal .modal-actions button.confirm{border-color:#a58dff;background:#8a68f2;color:white}.modal .help-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.modal .help-grid>div{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#b6b9c8;border-bottom:1px solid #343644;padding:5px 0}.modal kbd{font:10px ui-monospace,monospace;background:#383a4b;border:1px solid #535568;padding:3px 6px;border-radius:4px;color:#e7dffd}.toast-stack{position:fixed;bottom:50px;left:83px;z-index:120;display:flex;flex-direction:column;align-items:flex-start;gap:7px;pointer-events:none}.toast{border:1px solid #50536a;background:#26293af2;box-shadow:0 8px 26px #0008;color:#f0eefb;border-radius:7px;padding:11px 15px;font-size:12px;animation:toastIn .2s ease}@keyframes toastIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}input[type=range]{appearance:none;-webkit-appearance:none;height:4px;outline:0;border-radius:5px;background:linear-gradient(to right,#8060db,#50475e);accent-color:#a18aff;cursor:pointer}input[type=range]::-webkit-slider-thumb{appearance:none;width:12px;height:12px;border-radius:50%;background:#ac98ff;border:2px solid #262735;box-shadow:0 0 0 1px #a18aff}input[type=range]::-moz-range-thumb{width:10px;height:10px;border-radius:50%;background:#ac98ff;border:1px solid #262735}.hidden{display:none!important}@media(max-height:720px){.navigator-section{display:none}.adjustments-section{padding-top:11px;padding-bottom:11px}.adjustment-row{margin:7px 0}.adjustment-row label{margin-bottom:5px}}@media(max-width:1120px){.inspector{width:250px}.topbar{gap:8px;padding:0 12px}.offline-label{display:none}.optionsbar{padding:0 10px}.tool-options{gap:8px}.tool-options input[type=range]{width:72px}.navigator-section{display:none}.menubar-tip{display:none}}@media(max-width:920px){.inspector{width:230px}.brand-text{font-size:12px}.document-extension{display:none}.options-document-size{display:none}.viewport-shortcut{display:none}.toolbar{width:51px}.tool{width:38px;height:36px}.inspector-section{padding:12px 10px}}
+
+/* Extended professional workspace */
+.menubar{z-index:15}
+.dropdown{width:260px;max-height:calc(100dvh - 115px);overflow:visible}
+.dropdown>button,.dropdown>.submenu-parent>button{font-size:12px;min-height:29px}
+.dropdown button:disabled{color:#777989;opacity:.55;cursor:not-allowed}
+.submenu-parent{position:relative}
+.submenu-parent>.submenu-toggle{width:100%}
+.sub-arrow{font-size:20px;line-height:12px;color:#aaa7ba}
+.submenu{display:none;position:absolute;left:calc(100% - 3px);top:-7px;z-index:35;width:267px;max-height:calc(100dvh - 115px);overflow-y:auto;overflow-x:hidden;padding:7px;background:#252836;border:1px solid #474857;box-shadow:0 14px 32px #0009;border-radius:7px}
+.submenu-parent:hover>.submenu,.submenu-parent.sub-open>.submenu,.submenu-parent:focus-within>.submenu{display:block}
+.submenu button{background:none;border:0;color:#e0e1e9;padding:8px 9px;min-height:29px;width:100%;display:flex;gap:8px;align-items:center;justify-content:space-between;text-align:left;border-radius:5px}
+.submenu button:hover{background:#453964}
+.submenu button:disabled{color:#777989}
+.submenu kbd{color:#9da0b3;font:10px ui-monospace,SFMono-Regular,Consolas,monospace}
+.submenu hr{height:1px;border:0;background:#414354;margin:5px 3px}
+.inspector-section.panel-collapsed>:not(.section-heading){display:none!important}
+.inspector-section.panel-collapsed .section-heading{opacity:.65}
+.modal-backdrop{overflow:auto;padding:24px}
+.modal.newdoc-modal{max-width:min(96vw,1120px);width:min(94vw,1050px);padding:0;background:#22232b;overflow:hidden}
+.newdoc-modal .modal-head{padding:19px 24px;margin:0;background:#282a33;border-bottom:1px solid #3d3e48}
+.newdoc-modal .modal-head h2{font-size:19px}
+.newdoc-modal .modal-head p{font-size:11px}
+.nd-workspace{display:grid;grid-template-columns:minmax(0,1fr) 295px;min-height:570px;max-height:calc(100dvh - 165px)}
+.nd-left{min-width:0;background:#1d1e25;display:flex;flex-direction:column}
+.nd-tabs{display:flex;gap:2px;padding:0 17px;overflow-x:auto;flex-shrink:0;background:#303139;border-bottom:1px solid #464650;scrollbar-width:thin}
+.newdoc-modal .nd-tabs button{white-space:nowrap;color:#c4c5cf;background:none;border:0;border-bottom:2px solid transparent;padding:17px 11px;font-size:12px}
+.newdoc-modal .nd-tabs button.active{border-bottom-color:#9e8bff;color:#fff}
+.nd-body{padding:22px;overflow-y:auto;min-height:0}
+.nd-caption{letter-spacing:1px;font-size:10px;font-weight:750;color:#aaaabb;margin-bottom:16px}
+.nd-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.newdoc-modal .nd-preset{border:2px solid #393944;background:#26272f;color:#dddde8;min-height:158px;min-width:0;border-radius:8px;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:12px;gap:8px;text-align:center}
+.newdoc-modal .nd-preset:hover{border-color:#8075b5}
+.newdoc-modal .nd-preset.active{border-color:#9583ff;background:#393347}
+.nd-preset .nd-icon{font-size:45px;line-height:48px;font-weight:200;color:#d4cfec}
+.nd-preset strong{font-size:12px;font-weight:650;max-width:100%;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.nd-preset small{font-size:10px;color:#a7a9ba}
+.nd-right{padding:25px 19px 16px;border-left:1px solid #454652;background:#292a31;display:flex;flex-direction:column;overflow-y:auto;min-height:0}
+.newdoc-modal .nd-right label{font-size:10px;gap:6px;margin-bottom:12px}
+.newdoc-modal .nd-right input,.newdoc-modal .nd-right select{padding:8px 9px;background:#22232a;border:1px solid #42434d;font-size:12px;border-radius:4px}
+.nd-dim{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.nd-orient{display:flex;gap:6px;height:34px}
+.newdoc-modal .nd-orient button{background:#292a32;border:1px solid #4a4a56;color:#c0c3d1;flex:1;border-radius:4px;font-size:23px}
+.newdoc-modal .nd-orient button.active{color:#fff;background:#514388;border-color:#a18dff}
+.nd-extra{margin:4px 0 12px;font-size:11px;color:#b4b6c5}
+.nd-extra summary{cursor:pointer}
+.nd-extra p{margin:7px 0;color:#a8aaba!important;font-size:11px!important}
+.newdoc-modal .nd-hint{padding:9px 0;color:#aaa8ce;font-size:11px;margin-top:auto}
+.newdoc-modal .nd-actions .modal-actions{margin:10px 0 0}
+.newdoc-modal .nd-actions .modal-actions button{padding:10px 14px}
+.modal .adv-control{margin:14px 0 17px}
+.adv-control label{display:flex!important;flex-direction:row!important;justify-content:space-between;align-items:center;font-size:12px!important;margin-bottom:5px}
+.adv-control output{font:11px ui-monospace,SFMono-Regular,Consolas,monospace;color:#c6baff}
+.adv-control input[type=range]{accent-color:#9781ff;padding:0;width:100%;background:transparent;border:0;cursor:pointer}
+.adv-control input[type=color]{height:42px;padding:4px}
+.adv-description{padding:8px 0}
+.adv-preview-note{padding:11px 0;color:#a5a6b7;font-size:11px;display:flex;gap:7px;align-items:center;border-top:1px solid #414254}
+.adv-preview-note svg{width:15px;height:15px}
+@media(max-width:1020px){.nd-workspace{grid-template-columns:minmax(0,1fr) 260px}.nd-presets{grid-template-columns:repeat(2,minmax(0,1fr))}.newdoc-modal .nd-tabs button{padding:14px 8px}}
+
+/* PixelForge folders, clipping masks, and robust layer actions */
+.layer-section {min-height:270px}.layer-list {max-height:min(42vh,480px);overflow:auto;scrollbar-width:thin}
+.layer-row {gap:5px;height:52px;padding-right:5px!important;user-select:none}
+.layer-row.group-row {height:40px;background:#242536}.layer-row.group-row.selected {background:#3b3156}
+.layer-delete,.layer-clip,.folder-toggle{background:none;border:0;flex-shrink:0;display:grid;place-items:center;width:20px;height:26px;padding:0;color:#868aa0;border-radius:4px}
+.layer-delete svg{width:13px;height:13px}.layer-delete{opacity:0}.layer-row:hover .layer-delete,.layer-row.selected .layer-delete{opacity:1}
+.layer-delete:hover{background:#5c3041;color:#ffb4c4}.layer-clip:hover,.folder-toggle:hover{background:#454055;color:#eee}
+.layer-clip.on{color:#a998ff;font-weight:800}.layer-clip{font-size:17px}.folder-toggle{width:13px;font-size:16px;color:#c5b6ee}
+.folder-mark{font-size:23px;line-height:1;color:#a18aff;width:34px;text-align:center}.folder-spacer{width:4px;flex-shrink:0}
+.group-row .layer-desc .layer-name{color:#dcd1ff}.group-row .layer-meta{font-size:9px}
+.layer-row .layer-thumb{width:32px;height:32px}.layer-visibility,.layer-lock{width:17px}
+.layer-context-menu{position:fixed;min-width:180px;z-index:110;padding:5px;background:#292938;border:1px solid #504c63;box-shadow:0 10px 35px #000a;border-radius:9px;display:flex;flex-direction:column;gap:1px}
+.layer-context-menu button{border:0;text-align:left;color:#e0ddeb;padding:8px 12px;background:transparent;border-radius:5px;font-size:12px}.layer-context-menu button:hover{background:#554978}
+
+.nd-actions{display:flex;gap:10px;align-items:center;justify-content:space-between}.nd-actions .modal-actions{margin-top:0!important;flex:1}
+.save-preset-button{border:1px solid #60547b;background:#343047;color:#d8c7ff;border-radius:6px;padding:9px 12px;white-space:nowrap}
+.save-preset-button:hover{background:#4e3e6b}
+
+/* Reliability and document-workflow usability improvements */
+#canvasSizeLabel.options-document-size{border:1px solid #494859;border-radius:5px;background:#2b2e3b;color:#d8cffc;cursor:pointer;padding:5px 10px;font-weight:650}
+#canvasSizeLabel.options-document-size:hover{border-color:#a892ff;background:#35304d}
+#headerNew{border-color:#7565a5;color:#e8ddff}
+#headerResize{border-color:#454357}
+.layer-delete{opacity:1!important;width:25px;height:29px;color:#b2b6c5}
+.layer-delete svg{height:17px;width:17px}
+.layer-row.selected .layer-delete{color:#ffd3da}
+.layer-delete:focus-visible{outline:2px solid #e8a1bc}
+.newdoc-modal .nd-explain{font-size:10px;color:#999cb1;line-height:1.5;margin:0 0 7px}
+.newdoc-modal .nd-workspace{max-height:min(760px,calc(100dvh - 110px));min-height:0;height:min(690px,calc(100dvh - 110px))}
+.nd-right{padding-top:17px}
+.nd-body{padding:17px}
+.modal .adv-control{margin:12px 0 17px}
+.adv-value-line{display:flex;gap:13px;align-items:center}
+.adv-value-line input[data-adjust]{flex:1;min-width:0}
+.modal .adv-value-line input[type=number]{width:77px;flex:0 0 77px;padding:8px;text-align:center;font:12px ui-monospace,monospace}
+.modal .adv-preview-toggle{display:flex;flex-direction:row;align-items:center;gap:10px;margin-top:18px;font-size:11px;color:#d2d3e5}
+.modal .adv-preview-toggle input{width:16px;height:16px;margin:0;accent-color:#987cff}
+@media(max-width:1200px){#headerResize{display:none}}
+@media(max-height:690px){.newdoc-modal .nd-workspace{height:calc(100dvh - 95px)}.newdoc-modal .nd-right{padding-top:10px}.nd-right label{margin-bottom:6px!important}.nd-preset{min-height:115px!important}}
+
+.properties-section{background:#20212b}
+.props-type{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:11px;font-size:11px}
+.props-type strong{max-width:65%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#ebebf4}
+.props-type span{color:#989bad;text-align:right;font-size:10px}
+.props-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.props-grid label{color:#afb2c1;font-size:10px;display:flex;flex-direction:column;gap:5px}
+.props-grid input{background:#151722;color:#eee;border:1px solid #4a4b59;border-radius:4px;padding:7px 8px;width:100%;min-width:0;font:12px ui-monospace,monospace}
+.props-grid input:focus{outline:1px solid #b6a2ff}
+.props-proportion{display:flex;align-items:center;gap:6px;margin-top:10px;color:#acaec0;font-size:10px}
+.props-proportion input{margin:0;accent-color:#967dff}
+.props-tip,.props-empty{color:#989cb0;font-size:10px;line-height:1.5;margin:7px 0}
+.props-quick{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}
+.props-quick button,.all-adjustments-btn{border:1px solid #545268;border-radius:5px;background:#343344;color:#e7e3f5;padding:8px;font-size:11px;cursor:pointer}
+.props-quick button:hover,.all-adjustments-btn:hover{background:#49405b;border-color:#9b87ee}
+.all-adjustments-btn{width:100%;margin-top:10px}
+.adjustment-picker{display:grid;grid-template-columns:1fr 1fr;gap:9px;max-height:55vh;overflow-y:auto}
+.adjustment-picker button{border:1px solid #52546a;background:#303242;color:#e4e0f4;border-radius:6px;padding:10px;text-align:left}
+.adjustment-picker button:hover{border-color:#ae9aff;background:#433759}
+
+/* The Create control must never be clipped by narrow preset-details columns. */
+.newdoc-modal .nd-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px;flex-shrink:0}
+.newdoc-modal .nd-actions .modal-actions{display:flex!important;gap:8px;flex:0 0 auto;margin:0!important;width:100%;justify-content:stretch}
+.newdoc-modal .nd-actions .modal-actions button{min-width:0;flex:1;white-space:normal;font-size:11px;padding:9px 5px!important}
+.newdoc-modal .nd-actions .modal-actions button.confirm{flex:1.4;font-weight:750}
+.newdoc-modal .nd-actions .save-preset-button{width:100%;padding:8px;border:1px solid #6e608d;color:#e0d5ff;background:#363046;border-radius:5px;flex-shrink:0}
+
+/* Keep the New Document action reachable at common laptop heights. */
+.newdoc-modal .nd-workspace{height:min(690px,calc(100dvh - 170px));max-height:calc(100dvh - 170px)}
+.newdoc-modal .nd-actions{position:sticky;bottom:-16px;background:#292a31;z-index:2;padding-top:8px;padding-bottom:5px}
+@media(max-height:690px){.newdoc-modal .nd-workspace{height:calc(100dvh - 155px);max-height:calc(100dvh - 155px)}.newdoc-modal .nd-actions{bottom:-8px}}
+
+</style>
+</head>
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" class="svg-icons" aria-hidden="true">
+    <symbol id="i-move" viewBox="0 0 24 24"><path d="m5 9-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M8 13V6a2 2 0 0 1 4 0v5-7a2 2 0 0 1 4 0v7-5a2 2 0 0 1 4 0v8c0 5-3 8-8 8-3 0-5-1-7-4l-3-4a2 2 0 0 1 3-3l3 2Z"/></symbol>
+    <symbol id="i-marquee" viewBox="0 0 24 24"><path stroke-dasharray="3 3" d="M4 4h16v16H4z"/></symbol>
+    <symbol id="i-brush" viewBox="0 0 24 24"><path d="m14 7 3-3a3 3 0 0 1 4 4l-3 3-9 9H4v-5l10-8ZM13 8l4 4M9 17c-1 0-3 1-3 3"/></symbol>
+    <symbol id="i-eraser" viewBox="0 0 24 24"><path d="m20 14-6 6H6l-4-4a2 2 0 0 1 0-3L12 3a2 2 0 0 1 3 0l7 7a2 2 0 0 1 0 3l-2 1ZM8 9l8 8M14 20h8"/></symbol>
+    <symbol id="i-bucket" viewBox="0 0 24 24"><path d="m12 2 10 10-9 9a3 3 0 0 1-4 0L2 14a3 3 0 0 1 0-4l8-8 10 10H2M20 20c0-1 2-4 2-4s2 3 2 4"/></symbol>
+    <symbol id="i-dropper" viewBox="0 0 24 24"><path d="m2 22 6-2 11-11M14 5l5 5M17 3l4 4a2 2 0 0 1-3 3l-4-4a2 2 0 0 1 3-3ZM8 16l-2 2M2 22l4-4"/></symbol>
+    <symbol id="i-type" viewBox="0 0 24 24"><path d="M4 6V4h16v2M12 4v16M8 20h8"/></symbol>
+    <symbol id="i-rectangle" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="1"/></symbol>
+    <symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></symbol>
+    <symbol id="i-gradient" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16" opacity=".45"/></symbol>
+    <symbol id="i-crop" viewBox="0 0 24 24"><path d="M6 2v15a2 2 0 0 0 2 2h14M2 6h15a2 2 0 0 1 2 2v14"/></symbol>
+    <symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5M7.5 10.5h6M10.5 7.5v6"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5M4 9h10a7 7 0 0 1 0 14h-3"/></symbol>
+    <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5M20 9H10a7 7 0 0 0 0 14h3"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3 3 21 21M10 5.2A11 11 0 0 1 12 5c6 0 10 7 10 7a16 16 0 0 1-3 3.6M6 6.3C3.5 8 2 12 2 12s4 7 10 7a10 10 0 0 0 4-.8"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 3h4M7 7l1 14h8l1-14M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 17v4h16v-4"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="2"/><path d="m3 17 5-5 4 4 3-3 6 6"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M9 4v6M15 14v6"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M2 7V5h7l3 3h10v12H2z"/></symbol><symbol id="i-mask" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="12" cy="12" r="5"/></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 6-10 6L2 8l10-6ZM2 12l10 6 10-6M2 16l10 6 10-6"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">P<span>✦</span></span><span class="brand-text">PixelForge <b>Studio</b></span></div>
+      <span class="brand-divider"></span>
+      <div class="document-title"><span class="unsaved-dot" id="dirtyDot"></span><span id="documentName">Untitled design</span><span class="document-extension">.pforge</span></div>
+      <div class="header-spacer"></div>
+      <span class="offline-label"><span class="offline-dot"></span> Private · Local editor</span>
+      <button class="header-btn secondary" id="headerNew" title="Create a custom-sized document (Ctrl+N)"><svg><use href="#i-plus"/></svg> New</button>
+      <button class="header-btn secondary" id="headerResize" title="Change canvas size">Resize</button>
+      <button class="header-btn secondary" id="headerOpen" title="Open image at original pixel dimensions, PSD, or PixelForge project"><svg><use href="#i-image"/></svg> Open</button>
+      <button class="header-btn primary" id="headerExport"><svg><use href="#i-download"/></svg> Export <svg class="small-chevron"><use href="#i-chevron"/></svg></button>
+    </header>
+
+    <nav class="menubar" id="menubar" aria-label="Main menu">
+      <div class="menu-item"><button data-menu="file">File</button><div class="dropdown" id="menu-file"></div></div>
+      <div class="menu-item"><button data-menu="edit">Edit</button><div class="dropdown" id="menu-edit"></div></div>
+      <div class="menu-item"><button data-menu="image">Image</button><div class="dropdown" id="menu-image"></div></div>
+      <div class="menu-item"><button data-menu="layer">Layer</button><div class="dropdown" id="menu-layer"></div></div>
+      <div class="menu-item"><button data-menu="type">Type</button><div class="dropdown" id="menu-type"></div></div>
+      <div class="menu-item"><button data-menu="select">Select</button><div class="dropdown" id="menu-select"></div></div>
+      <div class="menu-item"><button data-menu="filter">Filter</button><div class="dropdown" id="menu-filter"></div></div>
+      <div class="menu-item"><button data-menu="view">View</button><div class="dropdown" id="menu-view"></div></div>
+      <div class="menu-item"><button data-menu="window">Window</button><div class="dropdown" id="menu-window"></div></div>
+      <div class="menu-item"><button data-menu="help">Help</button><div class="dropdown" id="menu-help"></div></div>
+      <span class="menu-divider"></span>
+      <button class="mini-icon-btn" id="undoBtn" title="Undo (Ctrl+Z)"><svg><use href="#i-undo"/></svg></button>
+      <button class="mini-icon-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)"><svg><use href="#i-redo"/></svg></button>
+      <span class="menubar-tip">Drag and drop an image to get started</span>
+      <button id="helpBtn" class="help-btn" title="Keyboard shortcuts">?</button>
+    </nav>
+
+    <div class="optionsbar"><div class="options-label" id="optionsToolName">Move tool</div><div class="options-divider"></div><div id="toolOptions" class="tool-options"></div><div class="options-spacer"></div><button id="canvasSizeLabel" class="options-document-size" title="Resize canvas">1280 × 800 px</button></div>
+
+    <div class="editor-layout">
+      <aside class="toolbar" aria-label="Editing tools">
+        <div class="tool-group">
+          <button class="tool active" data-tool="move" title="Move (V)"><svg><use href="#i-move"/></svg><span>V</span></button>
+          <button class="tool" data-tool="marquee" title="Rectangular selection (M)"><svg><use href="#i-marquee"/></svg><span>M</span></button>
+          <button class="tool" data-tool="crop" title="Crop (C)"><svg><use href="#i-crop"/></svg><span>C</span></button>
+        </div>
+        <div class="tool-separator"></div>
+        <div class="tool-group">
+          <button class="tool" data-tool="brush" title="Brush (B)"><svg><use href="#i-brush"/></svg><span>B</span></button>
+          <button class="tool" data-tool="eraser" title="Eraser (E)"><svg><use href="#i-eraser"/></svg><span>E</span></button>
+          <button class="tool" data-tool="fill" title="Paint bucket (G)"><svg><use href="#i-bucket"/></svg><span>G</span></button>
+          <button class="tool" data-tool="gradient" title="Gradient (D)"><svg><use href="#i-gradient"/></svg><span>D</span></button>
+          <button class="tool" data-tool="eyedropper" title="Eyedropper (I)"><svg><use href="#i-dropper"/></svg><span>I</span></button>
+        </div>
+        <div class="tool-separator"></div>
+        <div class="tool-group">
+          <button class="tool" data-tool="text" title="Text (T)"><svg><use href="#i-type"/></svg><span>T</span></button>
+          <button class="tool" data-tool="rect" title="Rectangle (U)"><svg><use href="#i-rectangle"/></svg><span>U</span></button>
+          <button class="tool" data-tool="ellipse" title="Ellipse (Shift+U)"><svg><use href="#i-circle"/></svg><span>○</span></button>
+        </div>
+        <div class="tool-separator"></div>
+        <div class="tool-group">
+          <button class="tool" data-tool="hand" title="Hand (H / Space)"><svg><use href="#i-hand"/></svg><span>H</span></button>
+          <button class="tool" data-tool="zoom" title="Zoom (Z)"><svg><use href="#i-zoom"/></svg><span>Z</span></button>
+        </div>
+        <div class="tool-bottom">
+          <button class="tool-bottom-swatch" id="toolbarColor" title="Foreground color"><span></span></button>
+          <button class="tool-bottom-reset" id="resetColors" title="Reset foreground and background colors">◩</button>
+        </div>
+      </aside>
+
+      <main class="workspace" id="workspace">
+        <div class="workspace-topnote"><span class="worktop-indicator"></span><span id="workspaceTitle">Untitled design</span><span id="workspaceZoom">75%</span><span class="note-close">×</span></div>
+        <div class="canvas-viewport" id="viewport">
+          <div class="canvas-stage" id="canvasStage">
+            <canvas id="paintCanvas" width="1280" height="800"></canvas>
+            <canvas id="overlayCanvas" width="1280" height="800"></canvas>
+          </div>
+          <div class="drop-overlay" id="dropOverlay"><svg><use href="#i-image"/></svg><strong>Drop to import</strong><span>Images, PSD, or PixelForge project</span></div>
+          <div class="viewport-shortcut"><kbd>Space</kbd> drag to pan <span>·</span> <kbd>Ctrl</kbd> scroll to zoom</div>
+        </div>
+      </main>
+
+      <aside class="inspector" aria-label="Properties and layers">
+        <section class="inspector-section navigator-section"><div class="section-heading"><span>NAVIGATOR</span><button class="panel-icon" title="Fit to screen" id="fitNavigator"><svg><use href="#i-zoom"/></svg></button></div><div class="nav-thumb-container"><canvas id="navCanvas" width="244" height="128"></canvas></div><div class="navigator-footer"><span id="navigatorZoom">75%</span><input type="range" min="10" max="300" value="75" id="navigatorZoomRange" aria-label="Zoom"><button id="fitBtn">Fit</button></div></section>
+        <section class="inspector-section color-section"><div class="section-heading"><span>COLOR</span><span class="section-sub">Foreground</span></div><div class="color-control"><input type="color" id="colorPicker" value="#8b5cf6" aria-label="Foreground color"><div><span class="tiny-label">HEX VALUE</span><input type="text" spellcheck="false" maxlength="7" id="hexInput" value="#8B5CF6" aria-label="Hex color"></div><button class="eyedropper-small" id="pickColorBtn" title="Pick from canvas"><svg><use href="#i-dropper"/></svg></button></div><div class="swatches" id="swatches"></div></section>
+        <section class="inspector-section properties-section"><div class="section-heading"><span>PROPERTIES</span><span class="section-sub">Exact transform</span></div><div id="layerPropertiesBody"></div></section>
+        <section class="inspector-section adjustments-section"><div class="section-heading"><span>ADJUSTMENTS</span><svg class="heading-icon"><use href="#i-sliders"/></svg></div><div class="adjustment-row"><label for="adjBrightness">Brightness <output id="brightnessValue">0</output></label><input id="adjBrightness" type="range" min="-100" max="100" value="0"></div><div class="adjustment-row"><label for="adjContrast">Contrast <output id="contrastValue">0</output></label><input id="adjContrast" type="range" min="-100" max="100" value="0"></div><div class="adjustment-row"><label for="adjSaturation">Saturation <output id="saturationValue">0</output></label><input id="adjSaturation" type="range" min="-100" max="100" value="0"></div><div class="adjustment-row"><label for="adjHue">Hue <output id="hueValue">0°</output></label><input id="adjHue" type="range" min="-180" max="180" value="0"></div><div class="adjustments-actions"><button class="surface-btn" id="resetAdj">Reset</button><button class="surface-btn violet" id="applyAdj">Apply to layer</button></div><button class="all-adjustments-btn" id="fullAdjustmentsBtn">Detailed adjustments…</button><div class="quick-filters"><button data-preset="grayscale">B&W</button><button data-preset="sepia">Sepia</button><button data-preset="invert">Invert</button><button data-preset="soften">Soften</button><button data-preset="sharpen">Sharpen</button></div></section>
+        <section class="inspector-section layer-section"><div class="section-heading layers-heading"><span>LAYERS <span class="layer-count" id="layerCount">2</span></span><div class="heading-actions"><button class="panel-icon" id="duplicateLayerBtn" title="Duplicate layer"><svg><use href="#i-copy"/></svg></button><button class="panel-icon" id="newGroupBtn" title="New folder / group"><svg><use href="#i-folder"/></svg></button><button class="panel-icon" id="newLayerBtn" title="New layer"><svg><use href="#i-plus"/></svg></button></div></div><div class="layer-props"><select id="blendSelect" aria-label="Blend mode"><option value="source-over">Normal</option><option value="multiply">Multiply</option><option value="screen">Screen</option><option value="overlay">Overlay</option><option value="darken">Darken</option><option value="lighten">Lighten</option><option value="difference">Difference</option><option value="soft-light">Soft Light</option><option value="hard-light">Hard Light</option></select><label>Opacity <input id="layerOpacity" type="number" min="0" max="100" value="100">%</label></div><div id="layerList" class="layer-list"></div><div class="layer-footer"><button id="groupSelectedBtn" title="Group selected layer"><svg><use href="#i-folder"/></svg></button><button id="clipLayerBtn" title="Clip image to layer below">↳</button><button id="maskLayerBtn" title="Create layer mask"><svg><use href="#i-mask"/></svg></button><button id="addImageLayer" title="Import as layer"><svg><use href="#i-image"/></svg></button><button id="moveLayerUp" title="Move layer up">↑</button><button id="moveLayerDown" title="Move layer down">↓</button><span></span><button id="deleteLayerBtn" title="Delete selected layer or folder (Delete key)" aria-label="Delete selected layer"><svg><use href="#i-trash"/></svg></button></div></section>
+        <section class="inspector-section history-section"><div class="section-heading"><span>HISTORY</span><span class="section-sub" id="historyCount">1 state</span></div><div id="historyList" class="history-list"></div></section>
+      </aside>
+    </div>
+
+    <footer class="statusbar"><span class="status-ready"><i></i> Ready</span><span class="status-divider"></span><span id="statusTool">Move tool</span><span class="status-divider"></span><span id="statusDimensions">1280 × 800 px</span><div class="status-spacer"></div><span id="statusCoords">X: — Y: —</span><span class="status-divider"></span><button id="minusZoom">−</button><span id="statusZoom">75%</span><button id="plusZoom">+</button><span class="status-divider"></span><button id="gridBtn" title="Toggle grid"><svg><use href="#i-grid"/></svg></button></footer>
+  </div>
+
+  <input id="imageInput" type="file" accept="image/*" multiple hidden>
+  <input id="projectInput" type="file" accept=".pforge,.json" hidden>
+  <input id="openInput" type="file" accept=".psd,.pforge,.json,image/*" hidden>
+  <input id="psdInput" type="file" accept=".psd,image/vnd.adobe.photoshop" hidden>
+  <div class="modal-backdrop hidden" id="modalBackdrop" role="dialog" aria-modal="true"><div class="modal" id="modalContent"></div></div>
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+  <script>
+/* PixelForge PSD I/O: standalone 8-bit RGB PSD codec (no network dependencies).
+   Supports raster layers, merged preview, blend modes, transparency, visibility,
+   opacity and legacy RLE/RAW plus ZIP decoding. This is not a full Photoshop engine. */
+(function(global){
+'use strict';
+const E=new TextEncoder(), D=new TextDecoder();
+class Writer {
+  constructor(){this.parts=[];this.length=0;}
+  bytes(data){const b=data instanceof Uint8Array?data:new Uint8Array(data);this.parts.push(b);this.length+=b.length;return this;}
+  u8(n){return this.bytes(Uint8Array.of(n&255));}
+  u16(n){return this.bytes(Uint8Array.of((n>>>8)&255,n&255));}
+  i16(n){return this.u16(n);}
+  u32(n){return this.bytes(Uint8Array.of((n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255));}
+  i32(n){return this.u32(n);}
+  str(s){return this.bytes(E.encode(s));}
+  result(){const a=new Uint8Array(this.length);let p=0;for(const b of this.parts){a.set(b,p);p+=b.length;}return a;}
+}
+class Reader {
+  constructor(data){this.b=data instanceof Uint8Array?data:new Uint8Array(data);this.v=new DataView(this.b.buffer,this.b.byteOffset,this.b.byteLength);this.p=0;}
+  check(n){if(n<0||this.p+n>this.b.length)throw new Error('Incomplete or damaged PSD file');}
+  u8(){this.check(1);return this.v.getUint8(this.p++);}
+  u16(){this.check(2);const n=this.v.getUint16(this.p,false);this.p+=2;return n;}
+  i16(){this.check(2);const n=this.v.getInt16(this.p,false);this.p+=2;return n;}
+  u32(){this.check(4);const n=this.v.getUint32(this.p,false);this.p+=4;return n;}
+  i32(){this.check(4);const n=this.v.getInt32(this.p,false);this.p+=4;return n;}
+  bytes(n){this.check(n);const b=this.b.subarray(this.p,this.p+n);this.p+=n;return b;}
+  str(n){return D.decode(this.bytes(n));}
+  skip(n){this.check(n);this.p+=n;}
+  seek(n){if(n<0||n>this.b.length)throw new Error('Invalid PSD offset');this.p=n;}
+}
+const blendToPSD={'source-over':'norm',multiply:'mul ',screen:'scrn',overlay:'over',darken:'dark',lighten:'lite',difference:'diff','soft-light':'sLit','hard-light':'hLit'};
+const blendFromPSD=Object.fromEntries(Object.entries(blendToPSD).map(([k,v])=>[v,k]));
+function encodeRLE(row){
+  const out=[];let i=0;
+  while(i<row.length){
+    let run=1;while(i+run<row.length&&run<128&&row[i]===row[i+run])run++;
+    if(run>=3){out.push(257-run,row[i]);i+=run;continue;}
+    const begin=i;i+=run;
+    while(i<row.length&&i-begin<128){
+      run=1;while(i+run<row.length&&run<128&&row[i]===row[i+run])run++;
+      if(run>=3)break;i+=Math.min(run,128-(i-begin));
+    }
+    out.push(i-begin-1);for(let p=begin;p<i;p++)out.push(row[p]);
+  }
+  return Uint8Array.from(out);
+}
+function decodeRLE(chunk,length){
+  const out=new Uint8Array(length);let i=0,p=0;
+  while(i<chunk.length&&p<length){
+    const cmd=chunk[i++];
+    if(cmd===128)continue;
+    if(cmd<=127){const size=cmd+1;if(i+size>chunk.length||p+size>length)throw new Error('Invalid PSD RLE literal');out.set(chunk.subarray(i,i+size),p);i+=size;p+=size;}
+    else{if(i>=chunk.length)throw new Error('Invalid PSD RLE run');const count=257-cmd;if(p+count>length)throw new Error('Invalid PSD RLE length');out.fill(chunk[i++],p,p+count);p+=count;}
+  }
+  if(p!==length)throw new Error('Incomplete PSD RLE data');
+  return out;
+}
+async function unzip(b,expected){
+  if(typeof DecompressionStream==='undefined')throw new Error('This browser cannot decode ZIP-compressed PSD layers');
+  const stream=new Blob([b]).stream().pipeThrough(new DecompressionStream('deflate'));
+  const result=new Uint8Array(await new Response(stream).arrayBuffer());
+  if(result.length!==expected)throw new Error('Unexpected PSD compressed channel size');
+  return result;
+}
+function undoPrediction(data,width,height){
+  for(let y=0;y<height;y++){const pos=y*width;for(let x=1;x<width;x++)data[pos+x]=(data[pos+x]+data[pos+x-1])&255;}
+}
+async function readChannel(b,width,height){
+  const r=new Reader(b),compression=r.u16(),expected=width*height;
+  if(compression===0){if(r.b.length-2<expected)throw new Error('Truncated PSD channel');return r.bytes(expected);}
+  if(compression===1){
+    const lens=Array.from({length:height},()=>r.u16());const pixels=new Uint8Array(expected);
+    for(let y=0;y<height;y++)pixels.set(decodeRLE(r.bytes(lens[y]),width),y*width);
+    return pixels;
+  }
+  if(compression===2||compression===3){const pixels=await unzip(r.bytes(r.b.length-r.p),expected);if(compression===3)undoPrediction(pixels,width,height);return pixels;}
+  throw new Error(`Unsupported PSD compression: ${compression}`);
+}
+async function readComposite(r,width,height,channels){
+  if(channels<3)throw new Error('The PSD must use RGB color mode');
+  const compression=r.u16(),n=width*height,planes=[];
+  if(compression===0){for(let c=0;c<channels;c++)planes.push(r.bytes(n));}
+  else if(compression===1){
+    const lens=Array.from({length:channels},()=>Array.from({length:height},()=>r.u16()));
+    for(let c=0;c<channels;c++){
+      const pixels=new Uint8Array(n);
+      for(let y=0;y<height;y++)pixels.set(decodeRLE(r.bytes(lens[c][y]),width),y*width);
+      planes.push(pixels);
+    }
+  }else if(compression===2||compression===3){
+    const bytes=await unzip(r.bytes(r.b.length-r.p),n*channels);
+    for(let c=0;c<channels;c++){const plane=bytes.subarray(c*n,(c+1)*n);if(compression===3)undoPrediction(plane,width,height);planes.push(plane);}
+  }else throw new Error('Unsupported PSD composite compression');
+  const can=document.createElement('canvas');can.width=width;can.height=height;
+  const c=can.getContext('2d'),img=c.createImageData(width,height);
+  for(let i=0;i<n;i++){const j=i*4;img.data[j]=planes[0][i];img.data[j+1]=planes[1][i];img.data[j+2]=planes[2][i];img.data[j+3]=channels>=4?planes[3][i]:255;}
+  c.putImageData(img,0,0);return can;
+}
+async function readPSD(buffer){
+  const r=new Reader(buffer);
+  if(r.str(4)!=='8BPS'||r.u16()!==1)throw new Error('Not a Photoshop PSD file (PSB is not supported)');
+  r.skip(6);const channels=r.u16(),height=r.u32(),width=r.u32(),depth=r.u16(),mode=r.u16();
+  if(mode!==3||depth!==8)throw new Error('Only 8-bit RGB PSD documents are supported. Convert to RGB / 8 bits per channel in Photoshop first.');
+  if(width<1||height<1||width>8192||height>8192||width*height>16000000||channels<3||channels>8)throw new Error('PSD dimensions or channels are outside editor limits');
+  r.skip(r.u32());r.skip(r.u32());
+  const maskBytes=r.u32(),maskEnd=r.p+maskBytes;
+  if(maskEnd>r.b.length)throw new Error('Invalid PSD layer section');
+  const records=[];
+  if(maskBytes>=4){
+    const layerBytes=r.u32(),layerEnd=r.p+layerBytes;
+    if(layerEnd>maskEnd)throw new Error('Damaged PSD layer section');
+    if(layerBytes>=2){
+      const count=Math.abs(r.i16());if(count>250)throw new Error('PSD contains too many layers to open');
+      for(let i=0;i<count;i++){
+        const top=r.i32(),left=r.i32(),bottom=r.i32(),right=r.i32(),nch=r.u16(),chs=[];
+        if(nch>64)throw new Error('Invalid PSD channel count');
+        for(let j=0;j<nch;j++)chs.push({id:r.i16(),len:r.u32()});
+        if(r.str(4)!=='8BIM')throw new Error('Invalid PSD blend mode signature');
+        const blendKey=r.str(4),opacity=r.u8()/255,clipping=r.u8(),flags=r.u8();r.u8();
+        const extraLen=r.u32(),extraEnd=r.p+extraLen;
+        if(extraEnd>layerEnd)throw new Error('Invalid PSD layer metadata');
+        r.skip(r.u32());r.skip(r.u32());
+        const namePos=r.p,namelen=r.u8(),name=D.decode(r.bytes(namelen));r.seek(Math.min(extraEnd,namePos+Math.ceil((namelen+1)/4)*4));
+        let realName=name,sectionType=0;
+        while(r.p+12<=extraEnd){
+          const sig=r.str(4),key=r.str(4),n=r.u32(),end=r.p+n;
+          if(end>extraEnd||!['8BIM','8B64'].includes(sig))break;
+          if(key==='luni'&&n>=4){const codeUnits=r.u32();if(codeUnits*2<=n-4){const codes=[];for(let k=0;k<codeUnits;k++)codes.push(r.u16());realName=String.fromCharCode(...codes);}}
+          if((key==='lsct'||key==='lsdk')&&n>=4)sectionType=r.u32();
+          r.seek(Math.min(extraEnd,end+(n%2)));
+        }
+        r.seek(extraEnd);records.push({top,left,bottom,right,chs,blendKey,opacity,clipping,visible:!(flags&2),name:realName||`Layer ${i+1}`,sectionType});
+      }
+      for(const rec of records){
+        const w=rec.right-rec.left,h=rec.bottom-rec.top;
+        const channelsData={};
+        for(const ch of rec.chs){
+          if(ch.len<2||ch.len>r.b.length-r.p)throw new Error('PSD has corrupt channel data');
+          const data=r.bytes(ch.len);
+          if(ch.id>=-1&&ch.id<=2&&w>0&&h>0&&w*h<16000000)channelsData[ch.id]=await readChannel(data,w,h);
+        }
+        if(rec.sectionType!==0||w<1||h<1||w*h>16000000)continue;
+        const layerCanvas=document.createElement('canvas');layerCanvas.width=w;layerCanvas.height=h;
+        const c=layerCanvas.getContext('2d'),im=c.createImageData(w,h),alpha=channelsData[-1];
+        for(let k=0;k<w*h;k++){const j=k*4;im.data[j]=channelsData[0]?.[k]??0;im.data[j+1]=channelsData[1]?.[k]??0;im.data[j+2]=channelsData[2]?.[k]??0;im.data[j+3]=alpha?.[k]??255;}
+        c.putImageData(im,0,0);rec.canvas=layerCanvas;
+      }
+    }
+    r.seek(maskEnd);
+  }
+  const layers=records.filter(rec=>rec.canvas);
+  if(!layers.length){if(r.p>=r.b.length)throw new Error('PSD has no readable layers or merged image');return {width,height,layers:[{canvas:await readComposite(r,width,height,channels),left:0,top:0,name:'Merged image',opacity:1,visible:true,blend:'source-over'}],warnings:['Opened merged image. The original PSD layers could not be imported.']};}
+  const warnings=[];
+  if(records.some(rec=>rec.sectionType))warnings.push('Layer groups were expanded into individual layers. Group blending and masks may look different.');
+  if(records.some(rec=>rec.chs.some(ch=>ch.id===-2||ch.id===-3)))warnings.push('Photoshop layer masks are not separately editable in PixelForge.');
+  if(records.some(rec=>!blendFromPSD[rec.blendKey]))warnings.push('Some unsupported Photoshop blend modes were converted to Normal.');
+  // Photoshop group compositing, smart effects and masks are not reconstructable
+  // by this raster-only layer reader. Use the file's own flattened composite as
+  // an appearance-accurate reference, rather than silently displaying a wrong image.
+  const hasAdvancedFeatures=records.some(rec=>rec.sectionType||rec.clipping||rec.chs.some(ch=>ch.id===-2||ch.id===-3)||!blendFromPSD[rec.blendKey]);
+  let appearanceCanvas=null;
+  if(hasAdvancedFeatures){
+    try{appearanceCanvas=await readComposite(r,width,height,channels);
+      warnings.unshift('Photoshop appearance preserved as a separate merged reference layer. Hide the reference layer to edit imported raster layers underneath. Group masks, effects, and smart objects are not independently editable.');
+    }catch(err){warnings.unshift(`The saved composite preview could not be decoded (${err.message}). Imported raster layers may not match Photoshop exactly.`);}
+  }
+  return {width,height,appearanceCanvas,layers:layers.map(rec=>({canvas:rec.canvas,left:rec.left,top:rec.top,name:rec.name,opacity:rec.opacity,visible:rec.visible,blend:blendFromPSD[rec.blendKey]||'source-over'})),warnings};
+}
+function encodeChannel(pixels,w,h,offset){
+  const rows=[],lens=[],row=new Uint8Array(w);
+  for(let y=0;y<h;y++){
+    const begin=y*w*4;
+    for(let x=0;x<w;x++)row[x]=pixels[begin+x*4+offset];
+    const compressed=encodeRLE(row);
+    if(compressed.length>65535)throw new Error('PSD row is too wide for RLE compression');
+    rows.push(compressed);lens.push(compressed.length);
+  }
+  const out=new Writer();out.u16(1);for(const n of lens)out.u16(n);for(const b of rows)out.bytes(b);
+  return out.result();
+}
+function asciiName(name){return String(name||'Layer').replace(/[^\x20-\x7e]/g,'?').slice(0,255);}
+function makeLayerExtra(name){
+  const e=new Writer();e.u32(0).u32(0);
+  const bytes=E.encode(asciiName(name));e.u8(bytes.length).bytes(bytes);
+  while((e.length-8)%4!==0)e.u8(0);
+  const unicode=new Writer();unicode.u32(name.length);
+  for(let i=0;i<name.length;i++)unicode.u16(name.charCodeAt(i));
+  e.str('8BIM').str('luni').u32(unicode.length).bytes(unicode.result());
+  if(unicode.length%2)e.u8(0);
+  return e.result();
+}
+function renderOne(src,width,height){
+  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+  const c=canvas.getContext('2d',{willReadFrequently:true});
+  c.translate(src.x||0,src.y||0);c.scale(src.scaleX??1,src.scaleY??1);c.drawImage(src.canvas,0,0);
+  c.setTransform(1,0,0,1,0,0);
+  const data=c.getImageData(0,0,width,height).data;
+  let left=width,top=height,right=0,bottom=0;
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++)if(data[(y*width+x)*4+3]){left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x+1);bottom=Math.max(bottom,y+1);}
+  if(right<=left){left=0;top=0;right=1;bottom=1;}
+  const w=right-left,h=bottom-top,pixels=new Uint8ClampedArray(w*h*4);
+  for(let y=0;y<h;y++)pixels.set(data.subarray(((top+y)*width+left)*4,((top+y)*width+left+w)*4),y*w*4);
+  return {pixels,left,top,right,bottom,w,h};
+}
+function writePSD({width,height,layers}){
+  if(width<1||height<1||width>8192||height>8192||width*height>16000000||layers.length>70||!layers.length)throw new Error('This document is too large to export as PSD');
+  const section=new Writer(),pixelData=new Writer();section.i16(layers.length);
+  // PSD layer records are stored from top to bottom, the reverse of the editor's order.
+  for(const source of [...layers].reverse()){
+    const layer=renderOne(source,width,height),channels=[0,1,2,-1];
+    const encoded=channels.map(ch=>encodeChannel(layer.pixels,layer.w,layer.h,ch===-1?3:ch));
+    section.i32(layer.top).i32(layer.left).i32(layer.bottom).i32(layer.right).u16(4);
+    channels.forEach((id,i)=>section.i16(id).u32(encoded[i].length));
+    const name=String(source.name||'Layer').slice(0,255),extra=makeLayerExtra(name);
+    section.str('8BIM').str(blendToPSD[source.blend]||'norm')
+      .u8(Math.round(Math.max(0,Math.min(1,source.opacity??1))*255)).u8(0)
+      .u8(source.visible===false?2:0).u8(0).u32(extra.length).bytes(extra);
+    encoded.forEach(ch=>pixelData.bytes(ch));
+  }
+  section.bytes(pixelData.result());
+  if(section.length%2)section.u8(0);
+  const layerMask=new Writer();layerMask.u32(section.length).bytes(section.result()).u32(0);
+  // Generate a flattened merged preview, including visible blend modes and layer opacity.
+  const merged=document.createElement('canvas');merged.width=width;merged.height=height;
+  const c=merged.getContext('2d',{willReadFrequently:true});
+  for(const l of layers){if(l.visible===false)continue;c.save();c.globalAlpha=l.opacity??1;c.globalCompositeOperation=l.blend||'source-over';
+    c.translate(l.x||0,l.y||0);c.scale(l.scaleX??1,l.scaleY??1);c.drawImage(l.canvas,0,0);c.restore();}
+  const composite=c.getImageData(0,0,width,height).data;
+  const compositeChannels=[0,1,2,3].map(ch=>encodeChannel(composite,width,height,ch));
+  const flattened=new Writer();flattened.u16(1); // Each composite channel shares one RLE header: discard the per-channel 2 byte compression markers.
+  for(const ch of compositeChannels)flattened.bytes(ch.subarray(2,2+height*2));
+  for(const ch of compositeChannels)flattened.bytes(ch.subarray(2+height*2));
+  const w=new Writer();w.str('8BPS').u16(1).bytes(new Uint8Array(6)).u16(4).u32(height).u32(width).u16(8).u16(3);
+  w.u32(0).u32(0).u32(layerMask.length).bytes(layerMask.result()).bytes(flattened.result());
+  return w.result();
+}
+global.PixelForgePSD={read:readPSD,write:writePSD};
+})(window);
+
+</script>
+  <script>
+/* PixelForge Studio — a fully local editor with PSD import/export. */
+(() => {
+'use strict';
+const $ = (s, root=document) => root.querySelector(s);
+const $$ = (s, root=document) => [...root.querySelectorAll(s)];
+const icon = (name) => `<svg><use href="#i-${name}"/></svg>`;
+const escapeHTML = (value) => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp = (n,min,max) => Math.max(min,Math.min(max,n));
+const canvas = $('#paintCanvas'), ctx = canvas.getContext('2d', {willReadFrequently:true});
+const overlay = $('#overlayCanvas'), octx = overlay.getContext('2d');
+const stage = $('#canvasStage'), viewport = $('#viewport'), workspace = $('#workspace');
+const navCanvas = $('#navCanvas'), navCtx = navCanvas.getContext('2d');
+const modalBg = $('#modalBackdrop');
+let nextLayerId = 1, renderScheduled=false, dirty=true, internalClipboard=null, panHolding=false, gridEnabled=false;
+let history=[], historyIndex=-1, modalOpen=false, drawInteraction=null, cursorPoint=null, dragCounter=0;
+const tools = {
+  move:'Move', marquee:'Selection', crop:'Crop', brush:'Brush', eraser:'Eraser', fill:'Paint bucket',
+  gradient:'Gradient', eyedropper:'Eyedropper', text:'Text', rect:'Rectangle', ellipse:'Ellipse', hand:'Hand', zoom:'Zoom'
+};
+const state = {
+  width:1280,height:800,name:'Untitled design',resolution:72,layers:[],activeId:null,tool:'move',
+  color:'#8b5cf6',secondary:'#ffffff',brushSize:22,brushOpacity:100,fillTolerance:32,
+  shapeFilled:true,strokeWidth:5,zoom:1,panX:0,panY:0,selection:null,cropRect:null,
+  adjustments:{brightness:0,contrast:0,saturation:0,hue:0}
+};
+const makeCanvas = (w=state.width,h=state.height) => {
+  const c=document.createElement('canvas');c.width=w;c.height=h;return c;
+};
+const getActive = () => state.layers.find(l => l.id===state.activeId) || null;
+const makeLayer = (name, options={}) => ({
+  id:nextLayerId++,name:name||`Layer ${nextLayerId}`,canvas:makeCanvas(),visible:true,opacity:1,
+  blend:'source-over',locked:false,x:0,y:0,scaleX:1,scaleY:1,type:'raster',textConfig:null,bounds:null,
+  parentId:null,expanded:true,clipToBelow:false,maskCanvas:null,...options
+});
+const effectiveFilter = () => {
+  const a=state.adjustments;
+  if(!a.brightness&&!a.contrast&&!a.saturation&&!a.hue)return 'none';
+  return `brightness(${100+a.brightness}%) contrast(${100+a.contrast}%) saturate(${100+a.saturation}%) hue-rotate(${a.hue}deg)`;
+};
+// Layer hierarchy is kept in bottom-to-top preorder. A group is a real container.
+const childrenOf = (parentId=null) => state.layers.filter(l=>(l.parentId??null)===parentId);
+const descendantsOf = id => {const result=[];const visit=parent=>{for(const l of childrenOf(parent)){result.push(l);if(l.type==='group')visit(l.id);}};visit(id);return result;};
+const normalizeHierarchy = () => {
+  const ordered=[],seen=new Set();
+  const visit=parent=>{for(const l of childrenOf(parent)){if(seen.has(l.id))continue;seen.add(l.id);ordered.push(l);if(l.type==='group')visit(l.id);}};
+  visit(null);
+  for(const l of state.layers){if(!seen.has(l.id)){l.parentId=null;seen.add(l.id);ordered.push(l);}}
+  state.layers=ordered;
+};
+const layerSourceCanvas = layer => {
+  if(!layer.maskCanvas)return layer.canvas;
+  const out=copyCanvas(layer.canvas),c=out.getContext('2d');
+  c.globalCompositeOperation='destination-in';c.drawImage(layer.maskCanvas,0,0);return out;
+};
+const paintLayerItem = (target,layer,showPreview=false) => {
+  if(!layer.visible)return;
+  target.save();target.globalAlpha=layer.opacity;target.globalCompositeOperation=layer.blend;
+  if(layer.type==='group'){
+    const temp=makeCanvas();paintChildren(temp.getContext('2d'),layer.id,showPreview);
+    target.drawImage(temp,0,0);
+  }else{
+    target.translate(layer.x,layer.y);target.scale(layer.scaleX,layer.scaleY);
+    if(showPreview&&layer.id===state.activeId)target.filter=effectiveFilter();
+    target.drawImage((showPreview&&layer.id===state.activeId&&currentAdjustmentPreview)||layerSourceCanvas(layer),0,0);
+  }
+  target.restore();
+};
+const paintChildren = (target,parentId=null,showPreview=false) => {
+  const siblings=childrenOf(parentId);let baseMask=null;
+  for(let i=0;i<siblings.length;i++){
+    const layer=siblings[i];if(!layer.visible)continue;
+    if(layer.clipToBelow&&!baseMask)continue;
+    if(layer.clipToBelow&&baseMask){
+      const clipped=makeCanvas(),c=clipped.getContext('2d');paintLayerItem(c,layer,showPreview);
+      c.globalCompositeOperation='destination-in';c.drawImage(baseMask,0,0);c.globalCompositeOperation='source-over';
+      target.drawImage(clipped,0,0);
+    }else{
+      // Retain the unmodified underlying layer alpha for any clipping stack above it.
+      if(siblings.slice(i+1).some(l=>l.clipToBelow)){
+        baseMask=makeCanvas();paintLayerItem(baseMask.getContext('2d'),layer,showPreview);
+      }else baseMask=null;
+      paintLayerItem(target,layer,showPreview);
+    }
+  }
+};
+const drawLayers = (target,{showPreview=true,background=null}={}) => {
+  target.save();target.clearRect(0,0,state.width,state.height);
+  if(background){target.fillStyle=background;target.fillRect(0,0,state.width,state.height);}
+  paintChildren(target,null,showPreview);
+  target.restore();
+};
+const requestRender = () => {if(renderScheduled)return;renderScheduled=true;requestAnimationFrame(() => {renderScheduled=false;drawLayers(ctx);drawOverlay();});};
+const renderAll = () => {requestRender();renderLayers();renderLayerProperties();renderHistory();updateStatus();renderNavigator();};
+const renderNavigator = () => {
+  navCtx.clearRect(0,0,navCanvas.width,navCanvas.height);
+  const w=navCanvas.width,h=navCanvas.height;
+  const scale=Math.min(w/state.width,h/state.height);
+  const dw=state.width*scale,dh=state.height*scale,x=(w-dw)/2,y=(h-dh)/2;
+  const t=makeCanvas(state.width,state.height);
+  drawLayers(t.getContext('2d'));
+  navCtx.fillStyle='#f6f6f7';navCtx.fillRect(x,y,dw,dh);navCtx.drawImage(t,x,y,dw,dh);
+  navCtx.strokeStyle='#89899b';navCtx.lineWidth=1;navCtx.strokeRect(x+.5,y+.5,dw-1,dh-1);
+};
+const resizeStage = () => {
+  const {width:w,height:h,zoom:z}=state;
+  canvas.width=overlay.width=w;canvas.height=overlay.height=h;
+  stage.style.width=`${w*z}px`;stage.style.height=`${h*z}px`;
+  stage.style.transform=`translate(-50%, -50%) translate(${state.panX}px, ${state.panY}px)`;
+  $('#canvasSizeLabel').textContent=`${w} × ${h} px`;
+  requestRender();updateStatus();
+};
+const applyStageZoom = () => {
+  stage.style.width=`${state.width*state.zoom}px`;
+  stage.style.height=`${state.height*state.zoom}px`;
+  stage.style.transform=`translate(-50%, -50%) translate(${state.panX}px, ${state.panY}px)`;
+  $('#navigatorZoomRange').value=Math.round(state.zoom*100);
+  const z=`${Math.round(state.zoom*100)}%`;
+  $('#navigatorZoom').textContent=$('#statusZoom').textContent=$('#workspaceZoom').textContent=z;
+  drawOverlay();
+};
+const setZoom = (z) => {state.zoom=clamp(z,.10,4);applyStageZoom();};
+const fitZoom = () => {
+  const z=Math.min(1.2,(viewport.clientWidth-100)/state.width,(viewport.clientHeight-90)/state.height);
+  state.panX=0;state.panY=0;setZoom(clamp(z,.1,4));
+};
+const updateStatus = () => {
+  const label=`${tools[state.tool]} tool`;
+  $('#statusTool').textContent=label;$('#optionsToolName').textContent=label;
+  $('#statusDimensions').textContent=`${state.width} × ${state.height} px`;
+  $('#canvasSizeLabel').textContent=`${state.width} × ${state.height} px`;
+  $('#documentName').textContent=$('#workspaceTitle').textContent=state.name;
+  $('#dirtyDot').style.opacity=dirty?'1':'.25';
+  $('#undoBtn').disabled=historyIndex<=0;
+  $('#redoBtn').disabled=historyIndex>=history.length-1;
+};
+const setDirty = (v=true) => {dirty=v;$('#dirtyDot').style.opacity=dirty?'1':'.25';};
+const colorToRGB = (hex) => {
+  const n=parseInt(hex.replace('#',''),16);
+  return [(n>>16)&255,(n>>8)&255,n&255];
+};
+const hexFromRGB = (r,g,b) => '#'+[r,g,b].map(n=>Math.round(n).toString(16).padStart(2,'0')).join('');
+const setColor = (hex) => {
+  let cleaned=String(hex).trim();if(/^#[a-f\d]{3}$/i.test(cleaned))cleaned='#'+cleaned.slice(1).split('').map(x=>x+x).join('');
+  if(!/^#[a-f\d]{6}$/i.test(cleaned)){toast('Enter a valid HEX color');return;}
+  state.color=cleaned.toLowerCase();$('#colorPicker').value=state.color;$('#hexInput').value=state.color.toUpperCase();
+  $('#toolbarColor span').style.background=state.color;
+  $$('#swatches button').forEach(el=>el.classList.toggle('active',el.dataset.color.toLowerCase()===state.color));
+  const optColor=$('#optionColor');if(optColor)optColor.value=state.color;
+};
+const toast = (message) => {
+  const el=document.createElement('div');el.className='toast';el.textContent=message;$('#toastStack').append(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),350);},2700);
+};
+const snapshot = (title='Edit') => ({
+  title,width:state.width,height:state.height,name:state.name,resolution:state.resolution,activeId:state.activeId,
+  layers:state.layers.map(l=>({...l,canvas:copyCanvas(l.canvas),maskCanvas:l.maskCanvas?copyCanvas(l.maskCanvas):null,bounds:l.bounds?{...l.bounds}:null,textConfig:l.textConfig?{...l.textConfig}:null}))
+});
+const copyCanvas = c => {const n=makeCanvas(c.width,c.height);n.getContext('2d').drawImage(c,0,0);return n;};
+const record = (title='Edit') => {
+  history=history.slice(0,historyIndex+1);history.push(snapshot(title));
+  if(history.length>18)history.shift();historyIndex=history.length-1;
+  setDirty();renderAll();
+};
+const restore = index => {
+  if(index<0||index>=history.length)return;
+  historyIndex=index;const s=history[index];
+  state.width=s.width;state.height=s.height;state.name=s.name;state.resolution=s.resolution||72;
+  state.activeId=s.activeId;state.layers=s.layers.map(l=>({...l,canvas:copyCanvas(l.canvas),maskCanvas:l.maskCanvas?copyCanvas(l.maskCanvas):null,bounds:l.bounds?{...l.bounds}:null,textConfig:l.textConfig?{...l.textConfig}:null}));
+  state.selection=null;state.cropRect=null;resetAdjustments(false);resizeStage();renderAll();
+};
+const undo = () => {if(historyIndex>0)restore(historyIndex-1);};
+const redo = () => {if(historyIndex<history.length-1)restore(historyIndex+1);};
+const renderHistory = () => {
+  $('#historyCount').textContent=`${history.length} states`;
+  $('#historyList').innerHTML=history.map((h,i)=>`<button class="history-entry ${i===historyIndex?'active':''}" data-history="${i}"><span class="history-number">${String(i+1).padStart(2,'0')}</span><span>${escapeHTML(h.title)}</span></button>`).join('');
+};
+const determineBounds = layer => {
+  const {width:w,height:h}=layer.canvas;
+  const pixels=layer.canvas.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data;
+  let minX=w,minY=h,maxX=-1,maxY=-1;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    if(pixels[(y*w+x)*4+3]>3){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);}
+  }
+  layer.bounds=maxX<0?null:{x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1};
+};
+const createBaseDocument = (w=1280,h=800,transparent=false,name='Untitled design',backgroundColor='#ffffff',resolution=72) => {
+  state.width=w;state.height=h;state.name=name;state.resolution=resolution;state.layers=[];state.selection=null;state.cropRect=null;
+  const bg=makeLayer(transparent?'Transparent background':'Background',{locked:!transparent});
+  if(!transparent){const b=bg.canvas.getContext('2d');b.fillStyle=backgroundColor;b.fillRect(0,0,w,h);bg.bounds={x:0,y:0,w,h};}
+  state.layers.push(bg);
+  const paint=makeLayer('Layer 1');state.layers.push(paint);state.activeId=paint.id;
+  history=[];historyIndex=-1;resetAdjustments(false);resizeStage();fitZoom();record('New document');setDirty(false);
+};
+const addLayer = (name,options={},doRecord=true) => {
+  const selected=getActive();
+  const parentId=options.parentId!==undefined?options.parentId:(selected?.type==='group'?selected.id:selected?.parentId??null);
+  const l=makeLayer(name,{...options,parentId});
+  const at=selected?state.layers.indexOf(selected):state.layers.length-1;
+  const subtree=selected?.type==='group'?descendantsOf(selected.id):[];
+  state.layers.splice(at+1+(selected?.type==='group'?subtree.length:0),0,l);
+  normalizeHierarchy();state.activeId=l.id;
+  if(doRecord)record('New layer');else renderAll();return l;
+};
+const selectLayer = id => {
+  if(!state.layers.some(l=>l.id===id))return;
+  state.activeId=id;resetAdjustments(false);
+  $$('.layer-row').forEach(row=>row.classList.toggle('selected',Number(row.dataset.id)===id));
+  const selected=getActive();$('#blendSelect').value=selected.blend;$('#layerOpacity').value=Math.round(selected.opacity*100);
+  renderLayerProperties();requestRender();
+};
+const editLayer = () => {
+  const l=getActive();
+  if(!l){toast('Select a layer first');return null;}
+  if(l.type==='group'){toast('Select a pixel layer inside the folder before editing');return null;}
+  if(l.locked){toast('Unlock this layer to edit it');return null;}
+  if(!l.visible){toast('Make this layer visible first');return null;}
+  return l;
+};
+const removeLayerSubtree = id => {
+  const deleted=new Set([id,...descendantsOf(id).map(l=>l.id)]);
+  state.layers=state.layers.filter(l=>!deleted.has(l.id));return deleted.size;
+};
+const deleteLayer = (id=state.activeId) => {
+  // Never mistake a DOM PointerEvent for the selected layer ID.
+  if(typeof id!=='number'||!Number.isFinite(id))id=state.activeId;
+  const selected=state.layers.find(l=>l.id===id);
+  if(!selected){toast('Select a layer or folder to delete');return;}
+  const oldIndex=state.layers.indexOf(selected),parentId=selected.parentId??null;
+  const count=removeLayerSubtree(selected.id);
+  if(!state.layers.length){const l=makeLayer('Layer 1');state.layers.push(l);state.activeId=l.id;}
+  else state.activeId=(state.layers[Math.min(oldIndex,state.layers.length-1)]||state.layers.find(l=>l.id===parentId)||state.layers.at(-1)).id;
+  normalizeHierarchy();resetAdjustments(false);record(count>1?`Delete group (${count} layers)`:'Delete layer');
+};
+const newGroup = (withSelection=false) => {
+  const selected=getActive();const wrapping=withSelection&&selected;
+  const parentId=selected?(selected.type==='group'&&!wrapping?selected.id:(selected.parentId??null)):null;
+  const group=makeLayer('Group '+(state.layers.filter(l=>l.type==='group').length+1),{type:'group',parentId});
+  const at=selected?state.layers.indexOf(selected):state.layers.length-1;
+  if(wrapping){state.layers.splice(at,0,group);selected.parentId=group.id;}
+  else state.layers.splice(at+1+(selected?.type==='group'?descendantsOf(selected.id).length:0),0,group);
+  normalizeHierarchy();state.activeId=group.id;record(wrapping?'Group selected layer':'New group');return group;
+};
+const moveToFolderDialog = () => {
+  const selected=getActive();if(!selected)return;
+  const disallowed=new Set([selected.id,...descendantsOf(selected.id).map(l=>l.id)]);
+  const folders=state.layers.filter(l=>l.type==='group'&&!disallowed.has(l.id));
+  openModal(`<form>${modalHead('Move into folder','Nest the selected item inside a layer folder. Folders can contain other folders.')}
+    <label>Destination<select name="parent"><option value="root">Top level (outside folders)</option>${folders.map(f=>`<option value="${f.id}" ${selected.parentId===f.id?'selected':''}>${escapeHTML(f.name)}</option>`).join('')}</select></label>
+    ${modalActions('Move layer')}</form>`,form=>{const dest=form.get('parent')==='root'?null:Number(form.get('parent'));if(!moveToGroup(selected.id,dest))toast('The layer is already in that location');closeModal();});
+};
+const ungroup = () => {
+  const g=getActive();if(g?.type!=='group'){toast('Select a folder to ungroup');return;}
+  for(const l of childrenOf(g.id))l.parentId=g.parentId??null;
+  state.layers=state.layers.filter(l=>l.id!==g.id);normalizeHierarchy();
+  state.activeId=state.layers.find(l=>l.parentId===(g.parentId??null))?.id??state.layers[0]?.id??null;
+  if(!state.layers.length){const l=makeLayer('Layer 1');state.layers=[l];state.activeId=l.id;}
+  record('Ungroup layers');
+};
+const canMoveToGroup = (layer,parentId) => parentId===null || (parentId!==layer.id && !descendantsOf(layer.id).some(l=>l.id===parentId) && state.layers.some(l=>l.id===parentId&&l.type==='group'));
+const moveToGroup = (id,parentId=null) => {
+  const l=state.layers.find(x=>x.id===id);if(!l||!canMoveToGroup(l,parentId))return false;
+  if((l.parentId??null)===parentId)return false;
+  const subtree=[l,...descendantsOf(l.id)],ids=new Set(subtree.map(x=>x.id));
+  state.layers=state.layers.filter(x=>!ids.has(x.id));l.parentId=parentId;
+  let insertAt=state.layers.length;
+  if(parentId!==null){const group=state.layers.find(x=>x.id===parentId);insertAt=state.layers.indexOf(group)+1+descendantsOf(parentId).length;}
+  state.layers.splice(insertAt,0,...subtree);normalizeHierarchy();state.activeId=l.id;
+  record(parentId===null?'Move layer out of folder':'Move layer into folder');return true;
+};
+const duplicateLayer = () => {
+  const src=getActive();if(!src)return;
+  const originals=[src,...descendantsOf(src.id)];const mapped=new Map(),copies=[];
+  for(const original of originals){
+    const copy=makeLayer(original.name+' copy',{...original,id:nextLayerId,canvas:copyCanvas(original.canvas),maskCanvas:original.maskCanvas?copyCanvas(original.maskCanvas):null,
+      textConfig:original.textConfig?{...original.textConfig}:null,bounds:original.bounds?{...original.bounds}:null,locked:false});
+    // Fresh IDs keep undo/redo and nested references independent.
+    if(copy.type!=='group'){copy.x+=14;copy.y+=14;}
+    mapped.set(original.id,copy.id);copies.push(copy);
+  }
+  copies.forEach((c,i)=>{const old=originals[i];c.parentId=mapped.get(old.parentId)??(old.parentId??null);});
+  const index=state.layers.indexOf(originals.at(-1));state.layers.splice(index+1,0,...copies);normalizeHierarchy();state.activeId=copies[0].id;
+  record(src.type==='group'?'Duplicate group':'Duplicate layer');
+};
+const moveLayerOrder = dir => {
+  const selected=getActive();if(!selected)return;
+  const siblings=childrenOf(selected.parentId??null),idx=siblings.indexOf(selected),other=siblings[idx+dir];
+  if(!other)return;
+  const groupA=[selected,...descendantsOf(selected.id)],groupB=[other,...descendantsOf(other.id)];
+  const first=state.layers.indexOf((dir===1?selected:other));
+  state.layers.splice(first,groupA.length+groupB.length,...(dir===1?[...groupB,...groupA]:[...groupA,...groupB]));
+  normalizeHierarchy();record('Reorder layer');
+};
+const toggleClipping = () => {
+  const l=getActive();if(!l||l.type==='group'){toast('Select a pixel layer to clip');return;}
+  const below=childrenOf(l.parentId??null),i=below.indexOf(l);
+  if(!l.clipToBelow&&i===0){toast('Place another layer beneath this layer first');return;}
+  l.clipToBelow=!l.clipToBelow;record(l.clipToBelow?'Create clipping mask':'Release clipping mask');
+};
+const addLayerMask = () => {
+  const l=editLayer();if(!l)return;
+  l.maskCanvas=makeCanvas(l.canvas.width,l.canvas.height);const m=l.maskCanvas.getContext('2d');
+  if(state.selection){const r=state.selection;m.fillStyle='#fff';m.fillRect((r.x-l.x)/l.scaleX,(r.y-l.y)/l.scaleY,r.w/l.scaleX,r.h/l.scaleY);}
+  else {m.fillStyle='#fff';m.fillRect(0,0,l.canvas.width,l.canvas.height);}
+  record('Add layer mask');toast(state.selection?'Layer mask created from selection':'White layer mask added');
+};
+const removeLayerMask = () => {const l=getActive();if(!l?.maskCanvas)return; l.maskCanvas=null;record('Remove layer mask');};
+const mergedPixels = list => {
+  const out=makeCanvas(),c=out.getContext('2d');
+  if(list===state.layers){paintChildren(c,null,false);return out;}
+  for(const l of list)paintLayerItem(c,l,false);return out;
+};
+const mergeDown = () => {
+  const a=getActive();if(!a||a.type==='group'){toast('Select a pixel layer to merge');return;}
+  const siblings=childrenOf(a.parentId??null),i=siblings.indexOf(a);if(i<=0||siblings[i-1].type==='group'){toast('No compatible pixel layer below');return;}
+  const low=siblings[i-1],canvas=makeCanvas(),c=canvas.getContext('2d');
+  const originalClip=a.clipToBelow;a.clipToBelow=false;
+  paintLayerItem(c,low,false);
+  if(originalClip){const b=makeCanvas();paintLayerItem(b.getContext('2d'),low,false);const top=makeCanvas(),tc=top.getContext('2d');paintLayerItem(tc,a,false);tc.globalCompositeOperation='destination-in';tc.drawImage(b,0,0);c.drawImage(top,0,0);}
+  else paintLayerItem(c,a,false);
+  a.clipToBelow=originalClip;
+  low.canvas=canvas;low.maskCanvas=null;low.x=low.y=0;low.scaleX=low.scaleY=1;low.opacity=1;low.blend='source-over';low.visible=true;low.locked=false;low.type='raster';low.textConfig=null;low.clipToBelow=false;
+  determineBounds(low);removeLayerSubtree(a.id);state.activeId=low.id;record('Merge down');
+};
+const flatten = () => {
+  const merged=mergedPixels(state.layers),l=makeLayer('Flattened image');l.canvas=merged;determineBounds(l);
+  state.layers=[l];state.activeId=l.id;record('Flatten image');
+};
+const renderLayers = () => {
+  $('#layerCount').textContent=state.layers.length;
+  const l=getActive();
+  $('#blendSelect').value=l?.blend||'source-over';
+  $('#layerOpacity').value=Math.round((l?.opacity??1)*100);
+  const rows=[];
+  function walk(parent=null,depth=0){
+    for(const layer of [...childrenOf(parent)].reverse()){
+      rows.push(`<div class="layer-row ${layer.id===state.activeId?'selected':''} ${layer.type==='group'?'group-row':''}" draggable="true" data-id="${layer.id}" data-type="${layer.type}" style="padding-left:${Math.min(52,7+depth*15)}px">
+        <button class="layer-visibility" data-action="eye" title="${layer.visible?'Hide':'Show'} layer">${icon(layer.visible?'eye':'eye-off')}</button>
+        ${layer.type==='group'?`<button class="folder-toggle" data-action="expand" title="Expand / collapse folder">${layer.expanded?'▾':'▸'}</button><span class="folder-mark">▣</span>`:`<span class="folder-spacer"></span><div class="layer-thumb"><canvas width="39" height="39"></canvas></div>`}
+        <div class="layer-desc"><span class="layer-name" title="Double-click to rename">${escapeHTML(layer.name)}</span><span class="layer-meta">${layer.type==='group'?`${descendantsOf(layer.id).length} items · Folder`:layer.clipToBelow?'↳ Clipped image':layer.maskCanvas?'Layer mask':layer.type==='text'?'Text layer':layer.locked?'Locked layer':'Pixel layer'} · ${Math.round(layer.opacity*100)}%</span></div>
+        ${layer.type==='group'?'':`<button class="layer-clip ${layer.clipToBelow?'on':''}" data-action="clip" title="${layer.clipToBelow?'Release':'Create'} clipping mask">↳</button>`}
+        <button class="layer-lock" data-action="lock" title="${layer.locked?'Unlock':'Lock'} layer">${icon(layer.locked?'lock':'unlock')}</button>
+        <button class="layer-delete" data-action="delete" title="Delete layer">${icon('trash')}</button></div>`);
+      if(layer.type==='group'&&layer.expanded!==false)walk(layer.id,depth+1);
+    }
+  }
+  walk();$('#layerList').innerHTML=rows.join('');
+  $$('.layer-row').forEach(row=>{
+    const layer=state.layers.find(l=>l.id===Number(row.dataset.id)),c=$('canvas',row);if(!c)return;
+    const tc=c.getContext('2d');tc.save();const ratio=Math.min(39/state.width,39/state.height);
+    tc.translate((39-state.width*ratio)/2,(39-state.height*ratio)/2);tc.scale(ratio,ratio);
+    tc.translate(layer.x,layer.y);tc.scale(layer.scaleX,layer.scaleY);tc.drawImage(layerSourceCanvas(layer),0,0);tc.restore();
+  });
+};
+const showLayerContextMenu = (x,y) => {
+  document.querySelector('.layer-context-menu')?.remove();const selected=getActive();if(!selected)return;
+  const menu=document.createElement('div');menu.className='layer-context-menu';
+  const options=[['Rename',()=>renameLayerDialog(getActive())],['Duplicate',duplicateLayer],
+    ['New folder',()=>newGroup()],['Group this layer',()=>newGroup(true)],
+    ...(selected.type==='group'?[['Ungroup',ungroup]]:[['Clipping mask',toggleClipping],['Add layer mask',addLayerMask],['Remove mask',removeLayerMask]]),
+    ['Move into folder…',moveToFolderDialog],['Move out of folder',()=>moveToGroup(state.activeId,null)],['Delete',()=>deleteLayer()]];
+  for(const [label,fn] of options){const b=document.createElement('button');b.textContent=label;b.addEventListener('click',()=>{menu.remove();fn();});menu.appendChild(b);}
+  document.body.appendChild(menu);menu.style.left=Math.min(x,window.innerWidth-220)+'px';menu.style.top=Math.min(y,window.innerHeight-340)+'px';
+  const dismiss=e=>{if(!menu.contains(e.target))menu.remove();document.removeEventListener('pointerdown',dismiss);};
+  setTimeout(()=>document.addEventListener('pointerdown',dismiss),0);
+};
+const setTool = name => {
+  if(!tools[name])return;
+  state.tool=name;drawInteraction=null;cursorPoint=null;
+  $$('.tool').forEach(btn=>btn.classList.toggle('active',btn.dataset.tool===name));
+  overlay.style.cursor=name==='move'?'move':name==='hand'?'grab':name==='text'?'text':name==='zoom'?'zoom-in':name==='eyedropper'?'crosshair':name==='brush'||name==='eraser'?'none':'crosshair';
+  updateToolOptions();updateStatus();requestRender();
+};
+const updateToolOptions = () => {
+  let html='';const t=state.tool;
+  if(t==='brush'||t==='eraser')html=`<label>Size <input type="range" id="optionSize" min="1" max="240" value="${state.brushSize}"><output id="sizeValue">${state.brushSize} px</output></label><label>Opacity <input type="range" id="optionOpacity" min="1" max="100" value="${state.brushOpacity}"><output id="opacityValue">${state.brushOpacity}%</output></label>${t==='brush'?'<label>Color <input type="color" id="optionColor" value="'+state.color+'"></label>':''}`;
+  else if(t==='rect'||t==='ellipse')html=`<label>Fill <input type="checkbox" id="optionShapeFill" ${state.shapeFilled?'checked':''}></label><label>Stroke <input type="number" id="optionStroke" min="1" max="80" value="${state.strokeWidth}"></label><label>Color <input type="color" id="optionColor" value="${state.color}"></label><span style="color:#797d90">Hold Shift for a perfect square / circle</span>`;
+  else if(t==='fill')html=`<label>Tolerance <input type="range" min="0" max="100" id="optionTolerance" value="${state.fillTolerance}"><output id="tolValue">${state.fillTolerance}</output></label><label>Color <input type="color" id="optionColor" value="${state.color}"></label>`;
+  else if(t==='gradient')html=`<label>Start <input type="color" id="optionColor" value="${state.color}"></label><label>End <input type="color" id="optionSecondary" value="${state.secondary}"></label><span style="color:#818599">Drag on canvas to set gradient direction</span>`;
+  else if(t==='crop')html=`<button id="applyCropOption" class="highlight" ${state.cropRect?'':'disabled'}>Apply crop ↵</button><button id="cancelCropOption">Cancel</button><span style="color:#9296a8">Drag to define crop bounds</span>`;
+  else if(t==='marquee')html=`<button id="selectAllOption">Select all</button><button id="deselectOption">Deselect</button><button id="copyOption">Copy merged</button><span style="color:#818599">Drag to select a region</span>`;
+  else if(t==='text')html='<span style="color:#9296a8">Click anywhere on the canvas to add editable text</span>';
+  else if(t==='zoom')html='<button id="zoomInOption">Zoom in +</button><button id="zoomOutOption">Zoom out −</button><button id="fitOption">Fit to screen</button>';
+  else if(t==='hand')html='<span style="color:#9296a8">Drag the canvas to pan · Hold Space from any tool</span>';
+  else if(t==='move')html='<span style="color:#9296a8">Drag to move · Resize using corner handles · Hold Shift for proportional resize</span>';
+  else if(t==='eyedropper')html='<span style="color:#9296a8">Click the canvas to sample a color</span>';
+  $('#toolOptions').innerHTML=html;
+  const bindInput=(s,fn)=>{const el=$(s);if(el)el.addEventListener('input',fn);};
+  bindInput('#optionSize',e=>{state.brushSize=Number(e.target.value);$('#sizeValue').textContent=`${state.brushSize} px`;drawOverlay();});
+  bindInput('#optionOpacity',e=>{state.brushOpacity=Number(e.target.value);$('#opacityValue').textContent=`${state.brushOpacity}%`;});
+  bindInput('#optionColor',e=>setColor(e.target.value));
+  bindInput('#optionSecondary',e=>state.secondary=e.target.value);
+  bindInput('#optionShapeFill',e=>state.shapeFilled=e.target.checked);
+  bindInput('#optionStroke',e=>state.strokeWidth=clamp(Number(e.target.value),1,80));
+  bindInput('#optionTolerance',e=>{state.fillTolerance=Number(e.target.value);$('#tolValue').textContent=state.fillTolerance;});
+  const click=(s,fn)=>{const el=$(s);if(el)el.addEventListener('click',fn);};
+  click('#applyCropOption',applyCrop);click('#cancelCropOption',()=>{state.cropRect=null;requestRender();updateToolOptions();});
+  click('#selectAllOption',selectAll);click('#deselectOption',deselect);
+  click('#copyOption',copySelection);click('#zoomInOption',()=>setZoom(state.zoom*1.25));
+  click('#zoomOutOption',()=>setZoom(state.zoom/1.25));click('#fitOption',fitZoom);
+};
+const docPoint = e => {
+  const r=overlay.getBoundingClientRect();
+  return {x:clamp((e.clientX-r.left)/r.width*state.width,0,state.width),y:clamp((e.clientY-r.top)/r.height*state.height,0,state.height)};
+};
+const localPoint = (layer,p) => ({x:(p.x-layer.x)/layer.scaleX,y:(p.y-layer.y)/layer.scaleY});
+const rectFromPoints = (a,b,square=false) => {
+  let dx=b.x-a.x,dy=b.y-a.y;
+  if(square){const side=Math.min(Math.abs(dx),Math.abs(dy));dx=Math.sign(dx||1)*side;dy=Math.sign(dy||1)*side;}
+  const x=Math.min(a.x,a.x+dx),y=Math.min(a.y,a.y+dy);
+  return {x,y,w:Math.abs(dx),h:Math.abs(dy)};
+};
+const docLayerBounds = layer => {
+  if(!layer)return null;
+  if(layer.type==='group'){
+    const bounds=descendantsOf(layer.id).filter(l=>l.type!=='group'&&l.visible).map(l=>docLayerBounds(l)).filter(Boolean);
+    if(!bounds.length)return null;
+    const x=Math.min(...bounds.map(b=>b.x)),y=Math.min(...bounds.map(b=>b.y));
+    const right=Math.max(...bounds.map(b=>b.x+b.w)),bottom=Math.max(...bounds.map(b=>b.y+b.h));
+    return {x,y,w:right-x,h:bottom-y};
+  }
+  return layer.bounds?{x:layer.x+layer.bounds.x*layer.scaleX,y:layer.y+layer.bounds.y*layer.scaleY,
+    w:layer.bounds.w*layer.scaleX,h:layer.bounds.h*layer.scaleY}:null;
+};
+const renderLayerProperties = () => {
+  const root=$('#layerPropertiesBody');if(!root)return;
+  const l=getActive();
+  if(!l){root.innerHTML='<p class="props-empty">Select a layer to edit its position and size.</p>';return;}
+  const b=docLayerBounds(l),group=l.type==='group';
+  const fields=group?['x','y']:['x','y','w','h'];
+  root.innerHTML=`<div class="props-type"><strong>${escapeHTML(l.name)}</strong><span>${group?'Folder · '+descendantsOf(l.id).length+' items':l.type==='text'?'Text layer':'Raster layer'}</span></div>
+   ${b?`<div class="props-grid">${fields.map(k=>`<label>${k==='x'?'X position':k==='y'?'Y position':k==='w'?'Width':'Height'} (px)<input type="number" data-property="${k}" value="${Math.round(b[k]*100)/100}" step="1" ${l.locked?'disabled':''}></label>`).join('')}</div>
+   ${group?'<p class="props-tip">Move the entire folder by changing X or Y. Group dimensions depend on its contents.</p>':'<label class="props-proportion"><input type="checkbox" id="propConstrain" checked> Keep aspect ratio while resizing</label>'}`:
+   '<p class="props-empty">This layer has no visible pixels yet. Use the brush, shapes, text, or place an image first.</p>'}
+   <div class="props-quick"><button type="button" id="propImageSize">Image size</button><button type="button" id="propCanvasSize">Canvas size</button></div>`;
+  $('#propImageSize')?.addEventListener('click',resizeDialog);
+  $('#propCanvasSize')?.addEventListener('click',canvasSizeDialog);
+};
+const applyLayerProperty = (key,value) => {
+  const l=getActive();if(!l||l.locked||!Number.isFinite(value))return;
+  const bounds=docLayerBounds(l);if(!bounds)return;
+  if(l.type==='group'){
+    const delta=(key==='x'?value-bounds.x:key==='y'?value-bounds.y:0);
+    if(key!=='x'&&key!=='y')return;
+    if(Math.abs(delta)<.00001)return;
+    for(const child of descendantsOf(l.id)){if(child.type!=='group'){if(key==='x')child.x+=delta;else child.y+=delta;}}
+  } else if(key==='x')l.x=value-l.bounds.x*l.scaleX;
+  else if(key==='y')l.y=value-l.bounds.y*l.scaleY;
+  else if(key==='w'||key==='h'){
+    const source=key==='w'?l.bounds.w:l.bounds.h;
+    if(!source||value<=0||value>6000)return;
+    const old=key==='w'?bounds.w:bounds.h;
+    const lock=$('#propConstrain')?.checked!==false;
+    const factor=value/old;
+    if(key==='w')l.scaleX=value/source;else l.scaleY=value/source;
+    if(lock){if(key==='w')l.scaleY*=factor;else l.scaleX*=factor;}
+  }else return;
+  record('Transform layer');
+};
+const hitTransformHandle = (point,layer) => {
+  const b=docLayerBounds(layer);if(!b||b.w<1||b.h<1)return null;
+  const radius=9/Math.max(state.zoom,.1);
+  for(const [which,x,y] of [['nw',b.x,b.y],['ne',b.x+b.w,b.y],['sw',b.x,b.y+b.h],['se',b.x+b.w,b.y+b.h]]){
+    if(Math.hypot(x-point.x,y-point.y)<=radius)return which;
+  }
+  return null;
+};
+const transformLayer = (d,point,constrain=false) => {
+  const layer=state.layers.find(l=>l.id===d.layerId);if(!layer?.bounds)return;
+  const b=d.bounds,handle=d.handle;
+  let left=handle.includes('w')?point.x:b.x;
+  let right=handle.includes('e')?point.x:b.x+b.w;
+  let top=handle.includes('n')?point.y:b.y;
+  let bottom=handle.includes('s')?point.y:b.y+b.h;
+  if(right-left<8){if(handle.includes('w'))left=right-8;else right=left+8;}
+  if(bottom-top<8){if(handle.includes('n'))top=bottom-8;else bottom=top+8;}
+  if(constrain){
+    const ratio=b.w/b.h, width=right-left,height=bottom-top;
+    if(width/height>ratio){const newWidth=height*ratio;if(handle.includes('w'))left=right-newWidth;else right=left+newWidth;}
+    else {const newHeight=width/ratio;if(handle.includes('n'))top=bottom-newHeight;else bottom=top+newHeight;}
+  }
+  layer.scaleX=(right-left)/layer.bounds.w;layer.scaleY=(bottom-top)/layer.bounds.h;
+  layer.x=left-layer.bounds.x*layer.scaleX;layer.y=top-layer.bounds.y*layer.scaleY;
+};
+const dashedBox = (r,color='#a997ff') => {
+  octx.lineWidth=1.4/Math.max(state.zoom,.1);octx.strokeStyle='#070612';octx.setLineDash([6/state.zoom,5/state.zoom]);
