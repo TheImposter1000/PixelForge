@@ -2047,7 +2047,9 @@ const saveWorkflowDialog = (mode='as') => {
   const description=isExport?'Download a finished image or a separate file. Your working document will remain unchanged.':isCopy?'Create an independent copy. Your open document remains unchanged.':'Choose a file name, format, and save location.';
   const html='<form class="save-workflow">'+modalHead(dialogTitle,description)
     +'<label>File name<input name="name" value="'+escapeHTML(initialName)+'" maxlength="90" autocomplete="off" required></label>'
-    +'<div class="field-row"><label>Save to<select name="destination"><option value="library">PixelForge Library</option><option value="computer">This computer (download)</option></select></label>'
+    +'<div class="field-row"><label>Save to<select name="destination">'
+    +(cloudUser?'<option value="cloud">My Cloud (private account)</option>':'')
+    +'<option value="library">PixelForge Library (this device)</option><option value="computer">This computer (download)</option></select></label>'
     +'<label>Format<select name="format"><optgroup label="Editable documents"><option value="pforge">PixelForge Project (.pforge)</option><option value="psd">Photoshop (.psd)</option></optgroup>'
     +'<optgroup label="Image formats"><option value="png">PNG (.png)</option><option value="jpeg">JPEG (.jpg)</option><option value="webp">WebP (.webp)</option><option value="gif">GIF, single frame (.gif)</option><option value="bmp">BMP (.bmp)</option><option value="tiff">TIFF (.tif)</option><option value="tga">Targa (.tga)</option><option value="pdf">PDF, rasterized (.pdf)</option></optgroup></select></label></div>'
     +'<div class="save-meta"><div><span>DOCUMENT SIZE</span><strong>'+state.width.toLocaleString()+' × '+state.height.toLocaleString()+' px</strong></div>'
@@ -2083,11 +2085,13 @@ const saveWorkflowDialog = (mode='as') => {
       outputDpi:clamp(Number(data.get('outputDpi'))||72,36,1200)
     };
     if(!name){toast('Enter a document name');return;}
-    if(destination==='library'&&format!=='pforge'){toast('The PixelForge Library stores native .pforge files only');return;}
+    if(['library','cloud'].includes(destination)&&format!=='pforge'){toast('Editable project storage supports .pforge files only');return;}
     button.disabled=true;button.textContent='Saving…';
     try{
-      if(destination==='library'){
-        const saved=await saveProjectToLibrary({name,newFile:true,copy:isCopy});
+      if(destination==='library'||destination==='cloud'){
+        const saved=destination==='cloud'
+          ?await saveCloudProject({name,newFile:true,copy:isCopy})
+          :await saveProjectToLibrary({name,newFile:true,copy:isCopy});
         if(!saved){button.disabled=false;button.textContent=isCopy?'Save Copy':'Save';return;}
       }else{
         await downloadNamedSave(format,name,options);
@@ -2107,8 +2111,9 @@ const saveWorkflowDialog = (mode='as') => {
   const form=$('#modalContent form'),destination=form.elements.namedItem('destination');
   const format=form.elements.namedItem('format'),note=$('#saveWorkflowNote');
   if(isExport){destination.value='computer';format.value='png';}
+  else if(cloudUser)destination.value='cloud';
   const refresh=()=>{
-    const type=format.value,local=destination.value==='library';
+    const type=format.value,local=destination.value==='library',cloud=destination.value==='cloud';
     const transparentFormats=['png','webp','gif','tiff','tga'];
     const transparency=form.elements.namedItem('transparency').value==='yes';
     const is24Tga=type==='tga'&&form.elements.namedItem('tgaDepth').value==='24';
@@ -2131,7 +2136,7 @@ const saveWorkflowDialog = (mode='as') => {
       :'Output: '+width.toLocaleString()+' × '+height.toLocaleString()+' pixels'+(tooLarge?' · Reduce output size for this format':'');
     $('#saveOutputSize').style.color=tooLarge?'#ff9ca6':'#c9c3ef';
     const notes={
-      pforge:local?'Editable PixelForge project. Layers, groups and masks are stored in this browser. Download .pforge backups; this is not cloud storage.':'Native editable PixelForge project retaining layers and masks. Your browser downloads a new file, not an in-place overwrite.',
+      pforge:cloud?'Private editable project stored in your signed-in PixelForge account. Requires a cloud connection; local backups remain recommended.':local?'Editable PixelForge project. Layers, groups and masks are stored in this browser. Download .pforge backups; this is not cloud storage.':'Native editable PixelForge project retaining layers and masks. Your browser downloads a new file, not an in-place overwrite.',
       psd:'Layered RGB 8-bit Photoshop PSD. Folders, masks and clipping can be rasterized. Some Photoshop-specific features are not preserved.',
       png:'Lossless PNG image with optional transparency. Flattened image, not editable layers.',
       jpeg:'JPEG photograph with adjustable quality, no transparency and no layers.',
@@ -2145,11 +2150,11 @@ const saveWorkflowDialog = (mode='as') => {
     note.textContent=notes[type]||'Choose a format.';
   };
   destination.addEventListener('change',()=>{
-    if(destination.value==='library'&&format.value!=='pforge')format.value='pforge';
+    if(['library','cloud'].includes(destination.value)&&format.value!=='pforge')format.value='pforge';
     refresh();
   });
   format.addEventListener('change',()=>{
-    if(format.value!=='pforge'&&destination.value==='library')destination.value='computer';
+    if(format.value!=='pforge'&&['library','cloud'].includes(destination.value))destination.value='computer';
     refresh();
   });
   ['scale','transparency','tgaDepth','gifColors'].forEach(name=>form.elements.namedItem(name).addEventListener('change',refresh));
@@ -2159,7 +2164,11 @@ const exportSavedFormat = async format => {
   try{await downloadNamedSave(format,state.name,{});toast(format.toUpperCase()+' exported');}
   catch(err){console.error('Export failed',err);toast('Export failed: '+err.message);}
 };
-const saveProject = () => state.libraryId?saveProjectToLibrary():saveWorkflowDialog('first');
+const saveProject = () => {
+  if(cloudUser&&state.cloudId&&state.cloudOwnerId===cloudUser.id)return saveCloudProject();
+  if(state.libraryId)return saveProjectToLibrary();
+  return saveWorkflowDialog('first');
+};
 const saveAsDialog = () => saveWorkflowDialog('as');
 const saveCopyDialog = () => saveWorkflowDialog('copy');
 
