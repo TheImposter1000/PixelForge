@@ -167,6 +167,13 @@
 .save-workflow .save-meta span{color:#9297a9;font-size:10px}
 .save-workflow .save-note{background:#20232b;border:1px solid #393c47;border-radius:7px;padding:11px 12px;color:#aeb3c4;font-size:11px;line-height:1.55;margin:12px 0}
 .save-workflow .save-quality-hidden{display:none}
+.save-workflow .save-options{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:14px;border-top:1px solid #383a46;padding-top:14px;min-width:0}
+.save-workflow .save-options>label{min-width:0}
+.save-workflow .save-options .save-setting-wide{grid-column:1/-1}
+.save-workflow .save-options label.checkbox-inline{display:flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer}
+.save-workflow .save-options input[type=checkbox]{width:auto;flex-shrink:0}
+.save-workflow .save-output-size{font-size:11px;color:#c9c3ef;padding:5px 0 0}
+@media(max-width:540px){.save-workflow .save-options{grid-template-columns:minmax(0,1fr)}}
 .save-workflow .modal-actions .confirm:disabled{opacity:.5;cursor:wait}
 /* Tabbed inspector */
 .inspector-tabs-section{padding:0!important;background:#20212b}
@@ -2017,14 +2024,35 @@ const saveWorkflowDialog = (mode='as') => {
     +'<div class="save-meta"><div><span>DOCUMENT SIZE</span><strong>'+state.width.toLocaleString()+' × '+state.height.toLocaleString()+' px</strong></div>'
     +'<div><span>LAYERS</span><strong>'+state.layers.length+' layers</strong></div></div>'
     +'<div class="save-note" id="saveWorkflowNote" aria-live="polite"></div>'
-    +'<div class="save-options"><label id="saveTransparencyRow" class="save-quality-hidden">Transparency<select name="transparency"><option value="yes">Preserve transparency</option><option value="no">Flatten onto white</option></select></label></div>'
-    +'<label id="saveQualityRow" class="save-quality-hidden">Image quality (JPEG / WebP)<input name="quality" type="number" min="10" max="100" value="92"></label>'
+    +'<div class="save-options">'
+    +'<label id="saveScaleRow" class="save-quality-hidden">Output size<select name="scale"><option value="0.5">50% (half size)</option><option value="1" selected>100% (original)</option><option value="2">200% (double size)</option></select></label>'
+    +'<label id="saveQualityRow" class="save-quality-hidden">Compression quality (10–100)<input name="quality" type="number" min="10" max="100" value="92"></label>'
+    +'<label id="saveTransparencyRow" class="save-quality-hidden">Transparency<select name="transparency"><option value="yes">Preserve transparency</option><option value="no">Flatten onto background color</option></select></label>'
+    +'<label id="saveMatteRow" class="save-quality-hidden">Background / matte color<input name="matte" type="color" value="#ffffff"></label>'
+    +'<label id="saveGifColorsRow" class="save-quality-hidden">GIF palette colors<select name="gifColors"><option value="256">256 colors</option><option value="128">128 colors</option><option value="64">64 colors</option><option value="32">32 colors</option><option value="16">16 colors</option></select></label>'
+    +'<label id="saveGifThresholdRow" class="save-quality-hidden">GIF transparency threshold (0–255)<input name="gifThreshold" type="number" min="0" max="255" value="128"></label>'
+    +'<label id="saveGifDitherRow" class="checkbox-inline save-quality-hidden"><input type="checkbox" name="gifDither" checked>Ordered dithering (reduce banding)</label>'
+    +'<label id="saveTgaDepthRow" class="save-quality-hidden">TGA pixel depth<select name="tgaDepth"><option value="32">32-bit RGBA</option><option value="24">24-bit RGB</option></select></label>'
+    +'<label id="saveDpiRow" class="save-quality-hidden">Resolution (pixels per inch)<input name="outputDpi" type="number" min="36" max="1200" value="'+Math.round(state.resolution||72)+'"></label>'
+    +'<div class="save-output-size save-setting-wide" id="saveOutputSize" aria-live="polite"></div>'
+    +'</div>'
     +'<div class="modal-actions"><button type="button" data-close>Cancel</button><button type="submit" class="confirm" id="saveWorkflowSubmit">'+(isExport?'Export':isCopy?'Save Copy':'Save')+'</button></div></form>';
   openModal(html,async data=>{
     const form=$('#modalContent form'),button=$('#saveWorkflowSubmit');
     if(!form||!button||button.disabled)return;
     const name=cleanSaveName(data.get('name'));
-    const destination=String(data.get('destination')),format=String(data.get('format')),quality=Number(data.get('quality'))||92,transparency=data.get('transparency')!=='no';
+    const destination=String(data.get('destination')),format=String(data.get('format'));
+    const options={
+      quality:clamp(Number(data.get('quality'))||92,10,100),
+      transparency:data.get('transparency')!=='no',
+      scale:Number(data.get('scale'))||1,
+      matte:String(data.get('matte')||'#ffffff'),
+      gifColors:Number(data.get('gifColors'))||256,
+      gifDither:data.has('gifDither'),
+      gifThreshold:clamp(Number(data.get('gifThreshold')),0,255),
+      tgaDepth:Number(data.get('tgaDepth'))||32,
+      outputDpi:clamp(Number(data.get('outputDpi'))||72,36,1200)
+    };
     if(!name){toast('Enter a document name');return;}
     if(destination==='library'&&format!=='pforge'){toast('The PixelForge Library stores native .pforge files only');return;}
     button.disabled=true;button.textContent='Saving…';
@@ -2033,7 +2061,7 @@ const saveWorkflowDialog = (mode='as') => {
         const saved=await saveProjectToLibrary({name,newFile:true,copy:isCopy});
         if(!saved){button.disabled=false;button.textContent=isCopy?'Save Copy':'Save';return;}
       }else{
-        await downloadNamedSave(format,name,quality,transparency);
+        await downloadNamedSave(format,name,options);
         if(!isCopy&&format==='pforge'){
           state.name=name;state.libraryId=null;setDirty(false);
           document.title=state.name+' — PixelForge Studio';updateStatus();scheduleActiveSessionSave();
@@ -2048,23 +2076,42 @@ const saveWorkflowDialog = (mode='as') => {
   });
   $('#modalContent').classList.add('save-modal');
   const form=$('#modalContent form'),destination=form.elements.namedItem('destination');
-  const format=form.elements.namedItem('format'),qualityRow=$('#saveQualityRow'),note=$('#saveWorkflowNote');
+  const format=form.elements.namedItem('format'),note=$('#saveWorkflowNote');
   if(isExport){destination.value='computer';format.value='png';}
   const refresh=()=>{
     const type=format.value,local=destination.value==='library';
-    qualityRow.classList.toggle('save-quality-hidden',!['jpeg','webp'].includes(type));
-    $('#saveTransparencyRow').classList.toggle('save-quality-hidden',!['png','webp','gif','tiff','tga'].includes(type));
+    const transparentFormats=['png','webp','gif','tiff','tga'];
+    const transparency=form.elements.namedItem('transparency').value==='yes';
+    const is24Tga=type==='tga'&&form.elements.namedItem('tgaDepth').value==='24';
+    const setVisible=(id,show)=>$('#'+id).classList.toggle('save-quality-hidden',!show);
+    setVisible('saveScaleRow',!['pforge','psd'].includes(type));
+    setVisible('saveQualityRow',['jpeg','webp','pdf'].includes(type));
+    setVisible('saveTransparencyRow',transparentFormats.includes(type)&&!is24Tga);
+    setVisible('saveMatteRow',['jpeg','bmp','pdf'].includes(type)||is24Tga||(transparentFormats.includes(type)&&!transparency));
+    setVisible('saveGifColorsRow',type==='gif');
+    setVisible('saveGifDitherRow',type==='gif');
+    setVisible('saveGifThresholdRow',type==='gif'&&transparency);
+    setVisible('saveTgaDepthRow',type==='tga');
+    setVisible('saveDpiRow',['tiff','pdf'].includes(type));
+    const scale=Number(form.elements.namedItem('scale').value)||1;
+    const width=Math.max(1,Math.round(state.width*scale)),height=Math.max(1,Math.round(state.height*scale));
+    const maxPixels=type==='gif'?6000000:['bmp','tiff','tga','pdf'].includes(type)?16000000:36000000;
+    const tooLarge=!['pforge','psd'].includes(type)&&(width*height>maxPixels||width>10000||height>10000);
+    $('#saveOutputSize').textContent=['pforge','psd'].includes(type)
+      ?'Saves the document at its original pixel dimensions.'
+      :'Output: '+width.toLocaleString()+' × '+height.toLocaleString()+' pixels'+(tooLarge?' · Reduce output size for this format':'');
+    $('#saveOutputSize').style.color=tooLarge?'#ff9ca6':'#c9c3ef';
     const notes={
       pforge:local?'Editable PixelForge project. Layers, groups and masks are stored in this browser. Download .pforge backups; this is not cloud storage.':'Native editable PixelForge project retaining layers and masks. Your browser downloads a new file, not an in-place overwrite.',
       psd:'Layered RGB 8-bit Photoshop PSD. Folders, masks and clipping can be rasterized. Some Photoshop-specific features are not preserved.',
       png:'Lossless PNG image with optional transparency. Flattened image, not editable layers.',
       jpeg:'JPEG photograph with adjustable quality, no transparency and no layers.',
       webp:'WebP single-frame image with adjustable quality and optional transparency.',
-      gif:'Single-frame GIF with a 256-color palette and optional binary transparency. Does not create animations. Maximum 6 megapixels.',
+      gif:'Single-frame GIF. Configure 16–256 colors, ordered dithering, and the binary transparency threshold. It does not create animation. Maximum 6 MP.',
       bmp:'24-bit BMP image. Transparency flattened to white. Maximum 16 megapixels.',
       tiff:'Uncompressed 8-bit RGBA TIFF. Supports transparency but not PixelForge layers. Maximum 16 megapixels.',
-      tga:'32-bit Targa image with optional transparency. Maximum 16 megapixels.',
-      pdf:'One-page flattened PDF at document print resolution. Not an editable Photoshop PDF. Maximum 16 megapixels.'
+      tga:'Choose 24-bit RGB or 32-bit RGBA Targa. Only 32-bit mode supports transparency. Maximum 16 MP.',
+      pdf:'Single-page raster PDF. Set print resolution (PPI) and JPEG image quality. Not a Photoshop-editable PDF. Maximum 16 MP.'
     };
     note.textContent=notes[type]||'Choose a format.';
   };
@@ -2076,6 +2123,7 @@ const saveWorkflowDialog = (mode='as') => {
     if(format.value!=='pforge'&&destination.value==='library')destination.value='computer';
     refresh();
   });
+  ['scale','transparency','tgaDepth','gifColors'].forEach(name=>form.elements.namedItem(name).addEventListener('change',refresh));
   refresh();
 };
 const exportSavedFormat = async format => {
