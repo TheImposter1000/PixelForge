@@ -533,7 +533,7 @@ const tools = {
   gradient:'Gradient', eyedropper:'Eyedropper', text:'Text', rect:'Rectangle', ellipse:'Ellipse', hand:'Hand', zoom:'Zoom'
 };
 const state = {
-  width:1280,height:800,name:'Untitled design',resolution:72,layers:[],activeId:null,tool:'move',
+  width:1280,height:800,name:'Untitled design',resolution:72,layers:[],activeId:null,selectedIds:[],tool:'move',
   color:'#8b5cf6',secondary:'#ffffff',brushSize:22,brushOpacity:100,fillTolerance:32,
   shapeFilled:true,strokeWidth:5,zoom:1,panX:0,panY:0,selection:null,cropRect:null,
   adjustments:{brightness:0,contrast:0,saturation:0,hue:0}
@@ -542,6 +542,39 @@ const makeCanvas = (w=state.width,h=state.height) => {
   const c=document.createElement('canvas');c.width=w;c.height=h;return c;
 };
 const getActive = () => state.layers.find(l => l.id===state.activeId) || null;
+const getSelectedLayerIds = () => {
+  const valid=(state.selectedIds||[]).filter(id=>state.layers.some(l=>l.id===id));
+  if(valid.length)return [...new Set(valid)];
+  return state.activeId&&state.layers.some(l=>l.id===state.activeId)?[state.activeId]:[];
+};
+const getSelectedLayers = () => getSelectedLayerIds().map(id=>state.layers.find(l=>l.id===id)).filter(Boolean);
+const setSingleLayerSelection = id => {
+  state.activeId=id??null;state.selectedIds=id==null?[]:[id];
+};
+const selectedRootLayers = () => {
+  const ids=new Set(getSelectedLayerIds()),roots=[];
+  for(const id of ids){
+    const layer=state.layers.find(l=>l.id===id);if(!layer)continue;
+    let parent=layer.parentId??null,covered=false;
+    while(parent!==null){
+      if(ids.has(parent)){covered=true;break;}
+      parent=state.layers.find(l=>l.id===parent)?.parentId??null;
+    }
+    if(!covered)roots.push(layer);
+  }
+  return roots;
+};
+const movablePartsForSelection = () => {
+  const seen=new Set(),parts=[];
+  for(const root of selectedRootLayers()){
+    const candidates=root.type==='group'?descendantsOf(root.id):[root];
+    for(const l of candidates){
+      if(l.type==='group'||l.locked||seen.has(l.id))continue;
+      seen.add(l.id);parts.push({id:l.id,x:l.x,y:l.y});
+    }
+  }
+  return parts;
+};
 const makeLayer = (name, options={}) => ({
   id:nextLayerId++,name:name||`Layer ${nextLayerId}`,canvas:makeCanvas(),visible:true,opacity:1,
   blend:'source-over',locked:false,x:0,y:0,scaleX:1,scaleY:1,type:'raster',textConfig:null,bounds:null,
@@ -667,7 +700,7 @@ const toast = (message) => {
   setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),350);},2700);
 };
 const snapshot = (title='Edit') => ({
-  title,width:state.width,height:state.height,name:state.name,resolution:state.resolution,activeId:state.activeId,
+  title,width:state.width,height:state.height,name:state.name,resolution:state.resolution,activeId:state.activeId,selectedIds:getSelectedLayerIds(),
   layers:state.layers.map(l=>({...l,canvas:copyCanvas(l.canvas),maskCanvas:l.maskCanvas?copyCanvas(l.maskCanvas):null,bounds:l.bounds?{...l.bounds}:null,textConfig:l.textConfig?{...l.textConfig}:null}))
 });
 const copyCanvas = c => {const n=makeCanvas(c.width,c.height);n.getContext('2d').drawImage(c,0,0);return n;};
@@ -680,7 +713,9 @@ const restore = index => {
   if(index<0||index>=history.length)return;
   historyIndex=index;const s=history[index];
   state.width=s.width;state.height=s.height;state.name=s.name;state.resolution=s.resolution||72;
-  state.activeId=s.activeId;state.layers=s.layers.map(l=>({...l,canvas:copyCanvas(l.canvas),maskCanvas:l.maskCanvas?copyCanvas(l.maskCanvas):null,bounds:l.bounds?{...l.bounds}:null,textConfig:l.textConfig?{...l.textConfig}:null}));
+  state.layers=s.layers.map(l=>({...l,canvas:copyCanvas(l.canvas),maskCanvas:l.maskCanvas?copyCanvas(l.maskCanvas):null,bounds:l.bounds?{...l.bounds}:null,textConfig:l.textConfig?{...l.textConfig}:null}));
+  state.activeId=s.activeId;state.selectedIds=(s.selectedIds||[s.activeId]).filter(id=>state.layers.some(l=>l.id===id));
+  if(!state.selectedIds.length&&state.activeId&&state.layers.some(l=>l.id===state.activeId))state.selectedIds=[state.activeId];
   state.selection=null;state.cropRect=null;resetAdjustments(false);resizeStage();renderAll();
 };
 const undo = () => {if(historyIndex>0)restore(historyIndex-1);};
@@ -699,11 +734,11 @@ const determineBounds = layer => {
   layer.bounds=maxX<0?null:{x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1};
 };
 const createBaseDocument = (w=1280,h=800,transparent=false,name='Untitled design',backgroundColor='#ffffff',resolution=72) => {
-  state.width=w;state.height=h;state.name=name;state.resolution=resolution;state.layers=[];state.selection=null;state.cropRect=null;
+  state.width=w;state.height=h;state.name=name;state.resolution=resolution;state.layers=[];state.activeId=null;state.selectedIds=[];state.selection=null;state.cropRect=null;
   const bg=makeLayer(transparent?'Transparent background':'Background',{locked:!transparent});
   if(!transparent){const b=bg.canvas.getContext('2d');b.fillStyle=backgroundColor;b.fillRect(0,0,w,h);bg.bounds={x:0,y:0,w,h};}
   state.layers.push(bg);
-  const paint=makeLayer('Layer 1');state.layers.push(paint);state.activeId=paint.id;
+  const paint=makeLayer('Layer 1');state.layers.push(paint);setSingleLayerSelection(paint.id);
   history=[];historyIndex=-1;resetAdjustments(false);resizeStage();fitZoom();record('New document');setDirty(false);
 };
 const addLayer = (name,options={},doRecord=true) => {
@@ -713,14 +748,30 @@ const addLayer = (name,options={},doRecord=true) => {
   const at=selected?state.layers.indexOf(selected):state.layers.length-1;
   const subtree=selected?.type==='group'?descendantsOf(selected.id):[];
   state.layers.splice(at+1+(selected?.type==='group'?subtree.length:0),0,l);
-  normalizeHierarchy();state.activeId=l.id;
+  normalizeHierarchy();setSingleLayerSelection(l.id);
   if(doRecord)record('New layer');else renderAll();return l;
 };
-const selectLayer = id => {
+const selectLayer = (id,{toggle=false,range=false}={}) => {
   if(!state.layers.some(l=>l.id===id))return;
-  state.activeId=id;resetAdjustments(false);
-  $$('.layer-row').forEach(row=>row.classList.toggle('selected',Number(row.dataset.id)===id));
-  const selected=getActive();$('#blendSelect').value=selected.blend;$('#layerOpacity').value=Math.round(selected.opacity*100);
+  const existing=getSelectedLayerIds(),anchor=state.activeId;
+  if(range&&anchor&&anchor!==id){
+    const visible=$$('.layer-row').map(row=>Number(row.dataset.id));
+    const a=visible.indexOf(anchor),b=visible.indexOf(id);
+    if(a>=0&&b>=0){
+      const picked=visible.slice(Math.min(a,b),Math.max(a,b)+1);
+      state.selectedIds=toggle?[...new Set([...existing,...picked])]:picked;
+      state.activeId=id;
+    }else setSingleLayerSelection(id);
+  }else if(toggle){
+    const set=new Set(existing);
+    if(set.has(id))set.delete(id);else set.add(id);
+    state.selectedIds=[...set];state.activeId=set.has(id)?id:(state.selectedIds.at(-1)??null);
+  }else setSingleLayerSelection(id);
+  resetAdjustments(false);
+  const selectedIds=new Set(getSelectedLayerIds());
+  $$('.layer-row').forEach(row=>row.classList.toggle('selected',selectedIds.has(Number(row.dataset.id))));
+  const selected=getActive();
+  if(selected){$('#blendSelect').value=selected.blend;$('#layerOpacity').value=Math.round(selected.opacity*100);}
   renderLayerProperties();requestRender();
 };
 const editLayer = () => {
@@ -735,16 +786,40 @@ const removeLayerSubtree = id => {
   const deleted=new Set([id,...descendantsOf(id).map(l=>l.id)]);
   state.layers=state.layers.filter(l=>!deleted.has(l.id));return deleted.size;
 };
-const deleteLayer = (id=state.activeId) => {
-  // Never mistake a DOM PointerEvent for the selected layer ID.
-  if(typeof id!=='number'||!Number.isFinite(id))id=state.activeId;
-  const selected=state.layers.find(l=>l.id===id);
-  if(!selected){toast('Select a layer or folder to delete');return;}
-  const oldIndex=state.layers.indexOf(selected),parentId=selected.parentId??null;
-  const count=removeLayerSubtree(selected.id);
-  if(!state.layers.length){const l=makeLayer('Layer 1');state.layers.push(l);state.activeId=l.id;}
-  else state.activeId=(state.layers[Math.min(oldIndex,state.layers.length-1)]||state.layers.find(l=>l.id===parentId)||state.layers.at(-1)).id;
-  normalizeHierarchy();resetAdjustments(false);record(count>1?`Delete group (${count} layers)`:'Delete layer');
+const deleteLayers = ids => {
+  const wanted=new Set((ids||[]).filter(id=>state.layers.some(l=>l.id===id)));
+  if(!wanted.size){toast('Select one or more layers or folders to delete');return;}
+  const roots=[];
+  for(const id of wanted){
+    const layer=state.layers.find(l=>l.id===id);if(!layer)continue;
+    let parent=layer.parentId??null,covered=false;
+    while(parent!==null){
+      if(wanted.has(parent)){covered=true;break;}
+      parent=state.layers.find(l=>l.id===parent)?.parentId??null;
+    }
+    if(!covered)roots.push(layer);
+  }
+  const oldIndex=Math.min(...roots.map(l=>state.layers.indexOf(l)).filter(i=>i>=0));
+  const deleted=new Set();
+  for(const root of roots){deleted.add(root.id);for(const child of descendantsOf(root.id))deleted.add(child.id);}
+  state.layers=state.layers.filter(l=>!deleted.has(l.id));
+  normalizeHierarchy();
+  if(!state.layers.length){
+    const l=makeLayer('Layer 1');state.layers=[l];setSingleLayerSelection(l.id);
+  }else{
+    const next=state.layers[Math.min(Math.max(0,oldIndex),state.layers.length-1)]||state.layers.at(-1);
+    setSingleLayerSelection(next?.id??null);
+  }
+  resetAdjustments(false);
+  const topCount=roots.length,total=deleted.size;
+  record(topCount>1?`Delete ${topCount} selected items (${total} layers)`:total>1?`Delete group (${total} layers)`:'Delete layer');
+};
+const deleteLayer = (id=null) => {
+  const selected=getSelectedLayerIds();
+  if(typeof id==='number'&&Number.isFinite(id)){
+    if(selected.length>1&&selected.includes(id))deleteLayers(selected);
+    else deleteLayers([id]);
+  }else deleteLayers(selected);
 };
 const newGroup = (withSelection=false) => {
   const selected=getActive();const wrapping=withSelection&&selected;
@@ -753,7 +828,7 @@ const newGroup = (withSelection=false) => {
   const at=selected?state.layers.indexOf(selected):state.layers.length-1;
   if(wrapping){state.layers.splice(at,0,group);selected.parentId=group.id;}
   else state.layers.splice(at+1+(selected?.type==='group'?descendantsOf(selected.id).length:0),0,group);
-  normalizeHierarchy();state.activeId=group.id;record(wrapping?'Group selected layer':'New group');return group;
+  normalizeHierarchy();setSingleLayerSelection(group.id);record(wrapping?'Group selected layer':'New group');return group;
 };
 const moveToFolderDialog = () => {
   const selected=getActive();if(!selected)return;
@@ -767,8 +842,9 @@ const ungroup = () => {
   const g=getActive();if(g?.type!=='group'){toast('Select a folder to ungroup');return;}
   for(const l of childrenOf(g.id))l.parentId=g.parentId??null;
   state.layers=state.layers.filter(l=>l.id!==g.id);normalizeHierarchy();
-  state.activeId=state.layers.find(l=>l.parentId===(g.parentId??null))?.id??state.layers[0]?.id??null;
-  if(!state.layers.length){const l=makeLayer('Layer 1');state.layers=[l];state.activeId=l.id;}
+  const next=state.layers.find(l=>l.parentId===(g.parentId??null))?.id??state.layers[0]?.id??null;
+  setSingleLayerSelection(next);
+  if(!state.layers.length){const l=makeLayer('Layer 1');state.layers=[l];setSingleLayerSelection(l.id);}
   record('Ungroup layers');
 };
 const canMoveToGroup = (layer,parentId) => parentId===null || (parentId!==layer.id && !descendantsOf(layer.id).some(l=>l.id===parentId) && state.layers.some(l=>l.id===parentId&&l.type==='group'));
@@ -779,7 +855,7 @@ const moveToGroup = (id,parentId=null) => {
   state.layers=state.layers.filter(x=>!ids.has(x.id));l.parentId=parentId;
   let insertAt=state.layers.length;
   if(parentId!==null){const group=state.layers.find(x=>x.id===parentId);insertAt=state.layers.indexOf(group)+1+descendantsOf(parentId).length;}
-  state.layers.splice(insertAt,0,...subtree);normalizeHierarchy();state.activeId=l.id;
+  state.layers.splice(insertAt,0,...subtree);normalizeHierarchy();setSingleLayerSelection(l.id);
   record(parentId===null?'Move layer out of folder':'Move layer into folder');return true;
 };
 const duplicateLayer = () => {
@@ -793,7 +869,7 @@ const duplicateLayer = () => {
     mapped.set(original.id,copy.id);copies.push(copy);
   }
   copies.forEach((c,i)=>{const old=originals[i];c.parentId=mapped.get(old.parentId)??(old.parentId??null);});
-  const index=state.layers.indexOf(originals.at(-1));state.layers.splice(index+1,0,...copies);normalizeHierarchy();state.activeId=copies[0].id;
+  const index=state.layers.indexOf(originals.at(-1));state.layers.splice(index+1,0,...copies);normalizeHierarchy();setSingleLayerSelection(copies[0].id);
   record(src.type==='group'?'Duplicate group':'Duplicate layer');
 };
 const moveLayerOrder = dir => {
@@ -834,21 +910,22 @@ const mergeDown = () => {
   else paintLayerItem(c,a,false);
   a.clipToBelow=originalClip;
   low.canvas=canvas;low.maskCanvas=null;low.x=low.y=0;low.scaleX=low.scaleY=1;low.opacity=1;low.blend='source-over';low.visible=true;low.locked=false;low.type='raster';low.textConfig=null;low.clipToBelow=false;
-  determineBounds(low);removeLayerSubtree(a.id);state.activeId=low.id;record('Merge down');
+  determineBounds(low);removeLayerSubtree(a.id);setSingleLayerSelection(low.id);record('Merge down');
 };
 const flatten = () => {
   const merged=mergedPixels(state.layers),l=makeLayer('Flattened image');l.canvas=merged;determineBounds(l);
-  state.layers=[l];state.activeId=l.id;record('Flatten image');
+  state.layers=[l];setSingleLayerSelection(l.id);record('Flatten image');
 };
 const renderLayers = () => {
-  $('#layerCount').textContent=state.layers.length;
+  const selectedIds=new Set(getSelectedLayerIds());
+  $('#layerCount').textContent=selectedIds.size>1?`${state.layers.length} · ${selectedIds.size} selected`:state.layers.length;
   const l=getActive();
   $('#blendSelect').value=l?.blend||'source-over';
   $('#layerOpacity').value=Math.round((l?.opacity??1)*100);
   const rows=[];
   function walk(parent=null,depth=0){
     for(const layer of [...childrenOf(parent)].reverse()){
-      rows.push(`<div class="layer-row ${layer.id===state.activeId?'selected':''} ${layer.type==='group'?'group-row':''}" draggable="true" data-id="${layer.id}" data-type="${layer.type}" style="padding-left:${Math.min(52,7+depth*15)}px">
+      rows.push(`<div class="layer-row ${selectedIds.has(layer.id)?'selected':''} ${layer.type==='group'?'group-row':''}" draggable="true" data-id="${layer.id}" data-type="${layer.type}" style="padding-left:${Math.min(52,7+depth*15)}px">
         <button class="layer-visibility" data-action="eye" title="${layer.visible?'Hide':'Show'} layer">${icon(layer.visible?'eye':'eye-off')}</button>
         ${layer.type==='group'?`<button class="folder-toggle" data-action="expand" title="Expand / collapse folder">${layer.expanded?'▾':'▸'}</button><span class="folder-mark">▣</span>`:`<span class="folder-spacer"></span><div class="layer-thumb"><canvas width="39" height="39"></canvas></div>`}
         <div class="layer-desc"><span class="layer-name" title="Double-click to rename">${escapeHTML(layer.name)}</span><span class="layer-meta">${layer.type==='group'?`${descendantsOf(layer.id).length} items · Folder`:layer.clipToBelow?'↳ Clipped image':layer.maskCanvas?'Layer mask':layer.type==='text'?'Text layer':layer.locked?'Locked layer':'Pixel layer'} · ${Math.round(layer.opacity*100)}%</span></div>
@@ -896,7 +973,7 @@ const updateToolOptions = () => {
   else if(t==='text')html='<span style="color:#9296a8">Click anywhere on the canvas to add editable text</span>';
   else if(t==='zoom')html='<button id="zoomInOption">Zoom in +</button><button id="zoomOutOption">Zoom out −</button><button id="fitOption">Fit to screen</button>';
   else if(t==='hand')html='<span style="color:#9296a8">Drag the canvas to pan · Hold Space from any tool</span>';
-  else if(t==='move')html='<span style="color:#9296a8">Drag to move · Resize using corner handles · Hold Shift for proportional resize</span>';
+  else if(t==='move')html='<span style="color:#9296a8">Drag to move · Shift + corner keeps proportions · Alt + corner resizes proportionally from center · Ctrl/Cmd or Shift click layers for multi-select</span>';
   else if(t==='eyedropper')html='<span style="color:#9296a8">Click the canvas to sample a color</span>';
   $('#toolOptions').innerHTML=html;
   const bindInput=(s,fn)=>{const el=$(s);if(el)el.addEventListener('input',fn);};
@@ -979,19 +1056,31 @@ const hitTransformHandle = (point,layer) => {
   }
   return null;
 };
-const transformLayer = (d,point,constrain=false) => {
+const transformLayer = (d,point,{constrain=false,fromCenter=false}={}) => {
   const layer=state.layers.find(l=>l.id===d.layerId);if(!layer?.bounds)return;
-  const b=d.bounds,handle=d.handle;
-  let left=handle.includes('w')?point.x:b.x;
-  let right=handle.includes('e')?point.x:b.x+b.w;
-  let top=handle.includes('n')?point.y:b.y;
-  let bottom=handle.includes('s')?point.y:b.y+b.h;
-  if(right-left<8){if(handle.includes('w'))left=right-8;else right=left+8;}
-  if(bottom-top<8){if(handle.includes('n'))top=bottom-8;else bottom=top+8;}
+  const b=d.bounds,handle=d.handle,cx=b.x+b.w/2,cy=b.y+b.h/2;
+  let left,right,top,bottom;
+  if(fromCenter){
+    const halfW=Math.max(4,Math.abs(handle.includes('w')?cx-point.x:point.x-cx));
+    const halfH=Math.max(4,Math.abs(handle.includes('n')?cy-point.y:point.y-cy));
+    left=cx-halfW;right=cx+halfW;top=cy-halfH;bottom=cy+halfH;
+  }else{
+    left=handle.includes('w')?point.x:b.x;
+    right=handle.includes('e')?point.x:b.x+b.w;
+    top=handle.includes('n')?point.y:b.y;
+    bottom=handle.includes('s')?point.y:b.y+b.h;
+    if(right-left<8){if(handle.includes('w'))left=right-8;else right=left+8;}
+    if(bottom-top<8){if(handle.includes('n'))top=bottom-8;else bottom=top+8;}
+  }
   if(constrain){
-    const ratio=b.w/b.h, width=right-left,height=bottom-top;
-    if(width/height>ratio){const newWidth=height*ratio;if(handle.includes('w'))left=right-newWidth;else right=left+newWidth;}
-    else {const newHeight=width/ratio;if(handle.includes('n'))top=bottom-newHeight;else bottom=top+newHeight;}
+    const ratio=b.w/b.h;let width=right-left,height=bottom-top;
+    if(width/height>ratio)width=height*ratio;else height=width/ratio;
+    if(fromCenter){
+      left=cx-width/2;right=cx+width/2;top=cy-height/2;bottom=cy+height/2;
+    }else{
+      if(handle.includes('w'))left=right-width;else right=left+width;
+      if(handle.includes('n'))top=bottom-height;else bottom=top+height;
+    }
   }
   layer.scaleX=(right-left)/layer.bounds.w;layer.scaleY=(bottom-top)/layer.bounds.h;
   layer.x=left-layer.bounds.x*layer.scaleX;layer.y=top-layer.bounds.y*layer.scaleY;
@@ -1444,7 +1533,7 @@ const openPSDFile = async file => {
     }
     state.width=documentData.width;state.height=documentData.height;state.resolution=72;
     state.name=file.name.replace(/\.psd$/i,'').slice(0,80)||'Imported PSD';
-    state.layers=loaded;state.activeId=loaded[loaded.length-1].id;
+    state.layers=loaded;setSingleLayerSelection(loaded[loaded.length-1].id);
     state.selection=null;state.cropRect=null;history=[];historyIndex=-1;
     resetAdjustments(false);resizeStage();fitZoom();record('Open PSD');setDirty(false);
     toast(`Opened ${file.name} with ${loaded.length} layers`);
@@ -1459,7 +1548,7 @@ const openAnyFile = async file => {
   return openRasterDocument(file);
 };
 const saveProject = () => {
-  const data={app:'PixelForge Studio',version:2,width:state.width,height:state.height,name:state.name,resolution:state.resolution,activeId:state.activeId,
+  const data={app:'PixelForge Studio',version:3,width:state.width,height:state.height,name:state.name,resolution:state.resolution,activeId:state.activeId,selectedIds:getSelectedLayerIds(),
     layers:state.layers.map(l=>({id:l.id,name:l.name,visible:l.visible,opacity:l.opacity,blend:l.blend,locked:l.locked,
       x:l.x,y:l.y,scaleX:l.scaleX,scaleY:l.scaleY,type:l.type,textConfig:l.textConfig,
       parentId:l.parentId,expanded:l.expanded,clipToBelow:l.clipToBelow,mask:l.maskCanvas?.toDataURL('image/png')||null,pixels:l.canvas.toDataURL('image/png')}))};
@@ -1487,7 +1576,10 @@ const openProjectFile = async file => {
     state.width=data.width;state.height=data.height;state.resolution=Number(data.resolution)||72;state.name=String(data.name||file.name.replace(/\.pforge$/,'')).slice(0,80);
     const ids=new Map(loaded.map(l=>[l.originalId,l.id]));
     for(const l of loaded){l.parentId=ids.get(l.originalParentId)??null;delete l.originalId;delete l.originalParentId;}
-    state.layers=loaded;normalizeHierarchy();state.activeId=ids.get(data.activeId)??loaded.at(-1).id;
+    state.layers=loaded;normalizeHierarchy();
+    state.selectedIds=(Array.isArray(data.selectedIds)?data.selectedIds:[data.activeId]).map(id=>ids.get(id)).filter(Boolean);
+    state.activeId=ids.get(data.activeId)??state.selectedIds.at(-1)??loaded.at(-1).id;
+    if(!state.selectedIds.length)state.selectedIds=[state.activeId];
     state.selection=null;state.cropRect=null;history=[];historyIndex=-1;resetAdjustments(false);resizeStage();fitZoom();record('Open project');setDirty(false);toast('Project opened');
   }catch(err){console.error(err);toast('Could not open this project file');}
 };
@@ -1508,7 +1600,7 @@ const openRasterDocument = async file => {
     state.width=w;state.height=h;state.resolution=72;
     state.name=file.name.replace(/\.[^.]*$/,'').slice(0,80)||'Opened image';
     determineBounds(layer);
-    state.layers=[layer];state.activeId=layer.id;
+    state.layers=[layer];setSingleLayerSelection(layer.id);
     state.selection=null;state.cropRect=null;state.panX=state.panY=0;
     history=[];historyIndex=-1;resetAdjustments(false);
     resizeStage();fitZoom();record('Open original image');setDirty(false);
@@ -1528,7 +1620,7 @@ const importImage = async file => {
   }catch(err){console.error(err);toast('Could not import this image');}
 };
 const helpDialog = () => {
-  const shortcuts=[['V','Move layer'],['M','Rectangle selection'],['B','Brush'],['E','Eraser'],['G','Paint bucket'],['T','Text'],['U','Rectangle'],['C','Crop'],['H','Hand'],['Z','Zoom'],['Ctrl + Z','Undo'],['Ctrl + Shift + Z','Redo'],['Ctrl + D','Deselect'],['Ctrl + C / V','Copy / paste'],['Ctrl + S','Save editable PixelForge project'],['Ctrl + Shift + S','Export layered Photoshop PSD'],['Space + drag','Pan canvas'],['Ctrl + scroll','Zoom canvas'],['Delete','Delete selected layer / folder'],['Shift + Delete','Clear selected pixels'],['Ctrl + G','Group selected layer'],['Ctrl + Alt + G','Clipping mask'],['Enter','Apply crop'],['Arrows','Nudge selected layer']];
+  const shortcuts=[['V','Move layer'],['M','Rectangle selection'],['B','Brush'],['E','Eraser'],['G','Paint bucket'],['T','Text'],['U','Rectangle'],['C','Crop'],['H','Hand'],['Z','Zoom'],['Ctrl + Z','Undo'],['Ctrl + Shift + Z','Redo'],['Ctrl + D','Deselect'],['Ctrl + C / V','Copy / paste'],['Ctrl + S','Save editable PixelForge project'],['Ctrl + Shift + S','Export layered Photoshop PSD'],['Space + drag','Pan canvas'],['Ctrl + scroll','Zoom canvas'],['Shift + click layer','Select a layer range'],['Ctrl/Cmd + click layer','Toggle layers in multi-selection'],['Delete','Delete all highlighted layers / folders'],['Shift + corner drag','Resize proportionally'],['Alt + corner drag','Resize proportionally from center'],['Shift + Delete','Clear selected pixels'],['Ctrl + G','Group selected layer'],['Ctrl + Alt + G','Clipping mask'],['Enter','Apply crop'],['Arrows','Nudge selected layer(s)']];
   openModal(`<div>${modalHead('Keyboard shortcuts','Speed up your editing workflow.')}
     <div class="help-grid">${shortcuts.map(([k,v])=>`<div><span>${v}</span><kbd>${k}</kbd></div>`).join('')}</div>
     <div class="modal-actions"><button class="confirm" data-close>Got it</button></div></div>`);
@@ -1551,7 +1643,7 @@ const createDemoProject = () => {
   const overline=makeLayer('Top caption');renderTextContent(overline,{text:'A DIGITAL PLAYGROUND',x:675,y:183,size:21,bold:true,font:'Arial, sans-serif',align:'left',color:'#c7bbff'});state.layers.push(overline);
   const headline=makeLayer('Create without limits');renderTextContent(headline,{text:'CREATE\nWITHOUT\nLIMITS.',x:668,y:247,size:88,bold:true,font:'Impact, sans-serif',align:'left',color:'#ffffff'});state.layers.push(headline);
   const footer=makeLayer('Poster subtitle');renderTextContent(footer,{text:'Every great idea starts with a canvas.',x:678,y:598,size:22,bold:false,font:'Arial, sans-serif',align:'left',color:'#d0cbe7'});state.layers.push(footer);
-  state.activeId=headline.id;history=[];historyIndex=-1;record('Open sample design');setDirty(false);resizeStage();fitZoom();renderAll();
+  setSingleLayerSelection(headline.id);history=[];historyIndex=-1;record('Open sample design');setDirty(false);resizeStage();fitZoom();renderAll();
 };
 // Layer adjustments. Operations are rasterized only when Apply is selected.
 const adjustmentDefinitions = {
@@ -1746,7 +1838,7 @@ const menuDefinitions = {
     ['---'],['Layer Properties','',[['Toggle Visibility','',()=>{const l=getActive();if(l){l.visible=!l.visible;record('Toggle layer visibility');}}],['Toggle Lock','',()=>{const l=getActive();if(l){l.locked=!l.locked;record('Toggle layer lock');}}],['Rasterize Text','',()=>{const l=editLayer();if(l){l.type='raster';l.textConfig=null;record('Rasterize layer');}}]]],
     ['Arrange','',[['Bring Forward','',()=>moveLayerOrder(1)],['Send Backward','',()=>moveLayerOrder(-1)]]],
     ['---'],['Create / Release Clipping Mask','Ctrl+Alt+G',toggleClipping],['Add Mask From Selection','',addLayerMask],['Remove Layer Mask','',removeLayerMask],['Move Into Folder…','',moveToFolderDialog],['Move Out of Folder','',()=>moveToGroup(state.activeId,null)],
-    ['---'],['Merge Down','Ctrl+E',mergeDown],['Flatten Image','',flatten],['Delete Layer / Group','',()=>deleteLayer()]
+    ['---'],['Merge Down','Ctrl+E',mergeDown],['Flatten Image','',flatten],['Delete Selected Layer(s) / Group(s)','',()=>deleteLayer()]
   ],
   type:[['Add Text','T',()=>{setTool('text');toast('Click on the canvas to add text');}],['Edit Selected Text…','',()=>{const l=getActive();if(l?.textConfig)textDialog(null,l);else toast('Select an editable text layer');}],['Rasterize Selected Type','',()=>{const l=editLayer();if(l){l.textConfig=null;l.type='raster';record('Rasterize type');}}]],
   select:[['Select All','Ctrl+A',selectAll],['Deselect','Ctrl+D',deselect],['---'],['Rectangular Marquee','M',()=>setTool('marquee')],['Clear Selected Pixels','Shift+Delete',clearSelected]],
@@ -1840,7 +1932,7 @@ const setupUI = () => {
       if(act==='clip'){selectLayer(id);toggleClipping();return;}
       if(act==='eye')layer.visible=!layer.visible;else layer.locked=!layer.locked;
       record(act==='eye'?'Toggle layer visibility':'Toggle layer lock');return;}
-    selectLayer(id);
+    selectLayer(id,{range:e.shiftKey,toggle:e.ctrlKey||e.metaKey});
   });
   $('#layerList').addEventListener('dblclick',e=>{
     const row=e.target.closest('.layer-row');if(!row)return;
@@ -1860,9 +1952,11 @@ const setupUI = () => {
     if(dst.type==='group'){moveToGroup(src.id,dst.id);draggedId=null;return;}
     if(src.parentId!==dst.parentId){if(!canMoveToGroup(src,dst.parentId??null))return;src.parentId=dst.parentId??null;}
     const subtree=[src,...descendantsOf(src.id)],ids=new Set(subtree.map(l=>l.id));state.layers=state.layers.filter(l=>!ids.has(l.id));
-    const at=state.layers.indexOf(dst)+1;state.layers.splice(at,0,...subtree);normalizeHierarchy();state.activeId=src.id;record('Move layer');draggedId=null;
+    const at=state.layers.indexOf(dst)+1;state.layers.splice(at,0,...subtree);normalizeHierarchy();setSingleLayerSelection(src.id);record('Move layer');draggedId=null;
   });
-  $('#layerList').addEventListener('contextmenu',e=>{const row=e.target.closest('.layer-row');if(!row)return;e.preventDefault();selectLayer(Number(row.dataset.id));showLayerContextMenu(e.clientX,e.clientY);});
+  $('#layerList').addEventListener('contextmenu',e=>{const row=e.target.closest('.layer-row');if(!row)return;e.preventDefault();const id=Number(row.dataset.id);
+    if(getSelectedLayerIds().includes(id)){state.activeId=id;renderLayerProperties();requestRender();}else selectLayer(id);
+    showLayerContextMenu(e.clientX,e.clientY);});
   $('#historyList').addEventListener('click',e=>{const b=e.target.closest('[data-history]');if(b)restore(Number(b.dataset.history));});
   $('#imageInput').addEventListener('change',async e=>{for(const f of e.target.files)await importImage(f);e.target.value='';});
   $('#projectInput').addEventListener('change',async e=>{if(e.target.files[0])await openProjectFile(e.target.files[0]);e.target.value='';});
@@ -1893,13 +1987,20 @@ const setupPointers = () => {
     }
     if(tool==='move'){
       const active=getActive();
+      if(active?.type!=='group'&&!active?.locked){
+        const handle=hitTransformHandle(p,active);
+        if(handle){drawInteraction={tool:'transform',handle,start:p,bounds:docLayerBounds(active),layerId:active.id};return;}
+      }
+      if(getSelectedLayerIds().length>1){
+        const parts=movablePartsForSelection();
+        if(!parts.length){toast('Unlock at least one selected layer to move it');return;}
+        drawInteraction={tool:'move-selection',start:p,parts};return;
+      }
       if(active?.type==='group'){
         if(active.locked){toast('Unlock this folder to move it');return;}
         drawInteraction={tool:'move-group',start:p,parts:descendantsOf(active.id).filter(l=>l.type!=='group'&&!l.locked).map(l=>({id:l.id,x:l.x,y:l.y}))};return;
       }
       const l=editLayer();if(!l)return;
-      const handle=hitTransformHandle(p,l);
-      if(handle){drawInteraction={tool:'transform',handle,start:p,bounds:docLayerBounds(l),layerId:l.id};return;}
       drawInteraction={tool:'move',start:p,startX:l.x,startY:l.y,layerId:l.id};return;
     }
     drawInteraction={tool,start:p,end:p,shift:e.shiftKey};
@@ -1915,14 +2016,14 @@ const setupPointers = () => {
       if(d.tool==='hand'){
         state.panX=d.panX+(e.clientX-d.clientX);state.panY=d.panY+(e.clientY-d.clientY);applyStageZoom();return;
       }
-      if(d.tool==='move-group'){
+      if(d.tool==='move-group'||d.tool==='move-selection'){
         for(const item of d.parts){const l=state.layers.find(x=>x.id===item.id);if(l){l.x=item.x+(p.x-d.start.x);l.y=item.y+(p.y-d.start.y);}}
         requestRender();return;
       }
       if(d.tool==='move'){
         const l=state.layers.find(l=>l.id===d.layerId);if(l){l.x=d.startX+(p.x-d.start.x);l.y=d.startY+(p.y-d.start.y);requestRender();}return;
       }
-      if(d.tool==='transform'){transformLayer(d,p,e.shiftKey);requestRender();return;}
+      if(d.tool==='transform'){transformLayer(d,p,{constrain:e.shiftKey||e.altKey,fromCenter:e.altKey});requestRender();return;}
       if(['brush','eraser'].includes(d.tool)){continueBrush(p);return;}
       d.end=p;d.shift=e.shiftKey;
       if(d.tool==='marquee'){
@@ -1938,9 +2039,9 @@ const setupPointers = () => {
     if(!drawInteraction)return;
     const d=drawInteraction,p=docPoint(e);
     if(d.tool==='hand'){drawInteraction=null;overlay.style.cursor=panHolding?'grab':state.tool==='hand'?'grab':'crosshair';return;}
-    if(d.tool==='move-group'){drawInteraction=null;
+    if(d.tool==='move-group'||d.tool==='move-selection'){drawInteraction=null;
       const changed=d.parts.some(item=>{const l=state.layers.find(x=>x.id===item.id);return l&&(Math.abs(l.x-item.x)>.5||Math.abs(l.y-item.y)>.5);});
-      if(changed)record('Move folder');else requestRender();return;
+      if(changed)record(d.tool==='move-selection'?'Move selected layers':'Move folder');else requestRender();return;
     }
     if(d.tool==='move'){
       drawInteraction=null;
@@ -1987,9 +2088,12 @@ const setupKeys = () => {
     }
     if(e.key==='Enter'&&state.tool==='crop'){e.preventDefault();applyCrop();return;}
     if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
-      const l=getActive();if(!l||l.locked)return;e.preventDefault();const v=e.shiftKey?10:1;
-      if(e.key==='ArrowUp')l.y-=v;if(e.key==='ArrowDown')l.y+=v;if(e.key==='ArrowLeft')l.x-=v;if(e.key==='ArrowRight')l.x+=v;
-      record('Nudge layer');return;
+      const active=getActive();if(!active)return;e.preventDefault();const v=e.shiftKey?10:1;
+      const dx=e.key==='ArrowLeft'?-v:e.key==='ArrowRight'?v:0,dy=e.key==='ArrowUp'?-v:e.key==='ArrowDown'?v:0;
+      const parts=(getSelectedLayerIds().length>1||active.type==='group')?movablePartsForSelection():(active.locked?[]:[{id:active.id,x:active.x,y:active.y}]);
+      if(!parts.length)return;
+      for(const item of parts){const l=state.layers.find(x=>x.id===item.id);if(l){l.x+=dx;l.y+=dy;}}
+      record(parts.length>1?'Nudge selected layers':'Nudge layer');return;
     }
     const map={v:'move',m:'marquee',b:'brush',e:'eraser',g:'fill',d:'gradient',i:'eyedropper',t:'text',c:'crop',h:'hand',z:'zoom',u:e.shiftKey?'ellipse':'rect'};
     if(map[key]){e.preventDefault();setTool(map[key]);}
