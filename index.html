@@ -150,6 +150,47 @@
 .newdoc-modal .nd-actions{position:sticky;bottom:-16px;background:#292a31;z-index:2;padding-top:8px;padding-bottom:5px}
 @media(max-height:690px){.newdoc-modal .nd-workspace{height:calc(100dvh - 155px);max-height:calc(100dvh - 155px)}.newdoc-modal .nd-actions{bottom:-8px}}
 
+
+/* PixelForge Home / project browser */
+.brand{cursor:pointer}
+.home-screen{flex:1;min-height:0;display:grid;grid-template-columns:230px minmax(0,1fr);background:#191a20;color:#ececf2;overflow:hidden}
+.home-sidebar{background:#202126;border-right:1px solid #303139;padding:24px 16px;display:flex;flex-direction:column;gap:7px}
+.home-sidebar .home-nav-title{font-size:10px;letter-spacing:1.1px;color:#777c8d;font-weight:800;margin:17px 10px 4px}
+.home-sidebar button{border:0;background:transparent;color:#c8cad3;border-radius:7px;padding:10px 12px;display:flex;align-items:center;gap:10px;text-align:left;font-weight:600}
+.home-sidebar button:hover,.home-sidebar button.active{background:#303139;color:#fff}
+.home-sidebar button svg{width:17px;height:17px}
+.home-sidebar .home-primary{background:#6f55d8;color:#fff;margin-bottom:5px;justify-content:center}
+.home-sidebar .home-primary:hover{background:#8269e6}
+.home-sidebar .home-storage-note{margin-top:auto;color:#777c8b;font-size:10px;line-height:1.45;padding:8px 10px}
+.home-main{overflow:auto;padding:44px clamp(28px,5vw,74px) 60px}
+.home-welcome{font-size:28px;font-weight:500;letter-spacing:-.5px;text-align:center;margin:0 0 34px;color:#dedfe6}
+.home-actions{display:flex;gap:12px;justify-content:center;margin-bottom:45px;flex-wrap:wrap}
+.home-action{min-width:180px;border:1px solid #444650;background:#292a30;color:#e6e7ec;border-radius:9px;padding:13px 17px;font-weight:700}
+.home-action.primary{background:#6e54d7;border-color:#8d77eb;color:#fff}
+.home-section-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 14px}
+.home-section-head h2{font-size:14px;margin:0;color:#d7d8df}
+.home-section-head span{font-size:10px;color:#838898}
+.home-library-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.home-project-card{border:1px solid #34363f;background:#24252b;border-radius:8px;overflow:hidden;min-width:0;transition:border-color .15s,transform .15s}
+.home-project-card:hover{border-color:#6f66a0;transform:translateY(-1px)}
+.home-project-thumb{height:130px;background:#15161b;display:grid;place-items:center;overflow:hidden;cursor:pointer}
+.home-project-thumb img{width:100%;height:100%;object-fit:contain}
+.home-project-thumb .empty-thumb{font-size:34px;color:#5d6070}
+.home-project-meta{padding:11px 12px}
+.home-project-meta strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;margin-bottom:5px}
+.home-project-meta small{display:block;color:#898e9d;font-size:10px;line-height:1.5}
+.home-project-actions{display:flex;gap:6px;margin-top:9px}
+.home-project-actions button{flex:1;border:1px solid #444753;background:#30323a;color:#d7d9e3;border-radius:5px;padding:6px;font-size:10px}
+.home-project-actions button:hover{background:#45404f}
+.home-project-actions button.delete:hover{background:#5c3041;color:#ffd1dc}
+.home-empty{border:1px dashed #41434e;border-radius:9px;padding:40px 20px;text-align:center;color:#858a99;grid-column:1/-1}
+.home-empty strong{display:block;color:#c9cbd5;font-size:14px;margin-bottom:6px}
+.app-shell.home-mode .optionsbar,.app-shell.home-mode .editor-layout,.app-shell.home-mode .statusbar{display:none}
+.app-shell:not(.home-mode) .home-screen{display:none}
+.app-shell.home-mode .document-title,.app-shell.home-mode #headerResize,.app-shell.home-mode #headerExport{display:none}
+.app-shell.home-mode #undoBtn,.app-shell.home-mode #redoBtn,.app-shell.home-mode .menubar-tip{visibility:hidden}
+@media(max-width:900px){.home-screen{grid-template-columns:190px minmax(0,1fr)}.home-main{padding:30px 24px}.home-project-thumb{height:110px}}
+
 </style>
 </head>
 <body>
@@ -217,6 +258,29 @@
       <span class="menubar-tip">Drag and drop an image to get started</span>
       <button id="helpBtn" class="help-btn" title="Keyboard shortcuts">?</button>
     </nav>
+
+    <section class="home-screen" id="homeScreen" aria-label="PixelForge Home">
+      <aside class="home-sidebar">
+        <button class="home-primary" id="homeNewCustom"><svg><use href="#i-plus"/></svg> New document</button>
+        <button id="homeOpenComputer"><svg><use href="#i-folder"/></svg> Open from computer</button>
+        <div class="home-nav-title">WORKSPACE</div>
+        <button class="active" id="homeNavHome"><svg><use href="#i-image"/></svg> Home</button>
+        <button id="homePresets"><svg><use href="#i-grid"/></svg> New from presets</button>
+        <div class="home-nav-title">FILES</div>
+        <button id="homeYourFiles"><svg><use href="#i-folder"/></svg> Your PixelForge files</button>
+        <div class="home-storage-note">Projects saved to the PixelForge Library stay in this browser on this device. Download a .pforge copy for backup or transfer.</div>
+      </aside>
+      <main class="home-main">
+        <h1 class="home-welcome">Welcome to PixelForge Studio</h1>
+        <div class="home-actions">
+          <button class="home-action primary" id="homeActionNew">Create custom document</button>
+          <button class="home-action" id="homeActionPreset">Browse presets</button>
+          <button class="home-action" id="homeActionOpen">Open file</button>
+        </div>
+        <div class="home-section-head"><h2>Recent & saved projects</h2><span id="homeLibraryCount">0 projects</span></div>
+        <div class="home-library-grid" id="homeLibraryGrid"><div class="home-empty"><strong>No saved PixelForge projects yet</strong>Save a project with Ctrl + S and it will appear here.</div></div>
+      </main>
+    </section>
 
     <div class="optionsbar"><div class="options-label" id="optionsToolName">Move tool</div><div class="options-divider"></div><div id="toolOptions" class="tool-options"></div><div class="options-spacer"></div><button id="canvasSizeLabel" class="options-document-size" title="Resize canvas">1280 × 800 px</button></div>
 
@@ -538,6 +602,7 @@ const overlay = $('#overlayCanvas'), octx = overlay.getContext('2d');
 const stage = $('#canvasStage'), viewport = $('#viewport'), workspace = $('#workspace');
 const navCanvas = $('#navCanvas'), navCtx = navCanvas.getContext('2d');
 const modalBg = $('#modalBackdrop');
+const appShell=$('.app-shell'),homeScreen=$('#homeScreen');
 let nextLayerId = 1, renderScheduled=false, dirty=true, internalClipboard=null, panHolding=false, gridEnabled=false;
 let history=[], historyIndex=-1, modalOpen=false, drawInteraction=null, cursorPoint=null, dragCounter=0;
 const tools = {
@@ -751,7 +816,7 @@ const createBaseDocument = (w=1280,h=800,transparent=false,name='Untitled design
   if(!transparent){const b=bg.canvas.getContext('2d');b.fillStyle=backgroundColor;b.fillRect(0,0,w,h);bg.bounds={x:0,y:0,w,h};}
   state.layers.push(bg);
   const paint=makeLayer('Layer 1');state.layers.push(paint);setSingleLayerSelection(paint.id);
-  history=[];historyIndex=-1;resetAdjustments(false);resizeStage();fitZoom();record('New document');setDirty(false);
+  state.libraryId=null;history=[];historyIndex=-1;resetAdjustments(false);resizeStage();fitZoom();record('New document');setDirty(false);showEditor();
 };
 const addLayer = (name,options={},doRecord=true) => {
   const selected=getActive();
@@ -1584,9 +1649,9 @@ const openPSDFile = async file => {
     }
     state.width=documentData.width;state.height=documentData.height;state.resolution=72;
     state.name=file.name.replace(/\.psd$/i,'').slice(0,80)||'Imported PSD';
-    state.layers=loaded;setSingleLayerSelection(loaded[loaded.length-1].id);
+    state.layers=loaded;setSingleLayerSelection(loaded[loaded.length-1].id);state.libraryId=null;
     state.selection=null;state.cropRect=null;history=[];historyIndex=-1;
-    resetAdjustments(false);resizeStage();fitZoom();record('Open PSD');setDirty(false);
+    resetAdjustments(false);resizeStage();fitZoom();record('Open PSD');setDirty(false);showEditor();
     toast(`Opened ${file.name} with ${loaded.length} layers`);
     if(documentData.warnings.length)toast(documentData.warnings.join(' '));
     setTool('move');
@@ -1598,41 +1663,117 @@ const openAnyFile = async file => {
   if(/\.(pforge|json)$/i.test(file.name))return openProjectFile(file);
   return openRasterDocument(file);
 };
-const saveProject = () => {
-  const data={app:'PixelForge Studio',version:3,width:state.width,height:state.height,name:state.name,resolution:state.resolution,activeId:state.activeId,selectedIds:getSelectedLayerIds(),
-    layers:state.layers.map(l=>({id:l.id,name:l.name,visible:l.visible,opacity:l.opacity,blend:l.blend,locked:l.locked,
-      x:l.x,y:l.y,scaleX:l.scaleX,scaleY:l.scaleY,type:l.type,textConfig:l.textConfig,
-      parentId:l.parentId,expanded:l.expanded,clipToBelow:l.clipToBelow,mask:l.maskCanvas?.toDataURL('image/png')||null,pixels:l.canvas.toDataURL('image/png')}))};
-  triggerDownload(new Blob([JSON.stringify(data)],{type:'application/json'}),`${safeName()}.pforge`);
-  setDirty(false);toast('Editable project saved');
+const PF_LIBRARY_DB='PixelForgeLibrary',PF_LIBRARY_STORE='projects';
+const openLibraryDB = () => new Promise((resolve,reject)=>{
+  if(!('indexedDB' in window)){reject(new Error('Browser project storage is unavailable'));return;}
+  const req=indexedDB.open(PF_LIBRARY_DB,1);
+  req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(PF_LIBRARY_STORE))db.createObjectStore(PF_LIBRARY_STORE,{keyPath:'id'});};
+  req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('Could not open project library'));
+});
+const libraryTransaction = async (mode,work) => {
+  const db=await openLibraryDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(PF_LIBRARY_STORE,mode),store=tx.objectStore(PF_LIBRARY_STORE);
+    let result;
+    try{result=work(store);}catch(err){db.close();reject(err);return;}
+    tx.oncomplete=()=>{db.close();resolve(result);};
+    tx.onerror=()=>{db.close();reject(tx.error||new Error('Project library operation failed'));};
+    tx.onabort=()=>{db.close();reject(tx.error||new Error('Project library operation was cancelled'));};
+  });
 };
+const projectDataFromState = () => ({
+  app:'PixelForge Studio',version:4,width:state.width,height:state.height,name:state.name,resolution:state.resolution,activeId:state.activeId,selectedIds:getSelectedLayerIds(),
+  layers:state.layers.map(l=>({id:l.id,name:l.name,visible:l.visible,opacity:l.opacity,blend:l.blend,locked:l.locked,
+    x:l.x,y:l.y,scaleX:l.scaleX,scaleY:l.scaleY,type:l.type,textConfig:l.textConfig,
+    parentId:l.parentId,expanded:l.expanded,clipToBelow:l.clipToBelow,mask:l.maskCanvas?.toDataURL('image/png')||null,pixels:l.canvas.toDataURL('image/png')}))
+});
+const projectThumbnail = () => {
+  const source=makeCanvas(),sc=source.getContext('2d');drawLayers(sc,{showPreview:false,background:'#20222b'});
+  const thumb=document.createElement('canvas');thumb.width=320;thumb.height=200;const t=thumb.getContext('2d');
+  t.fillStyle='#18191f';t.fillRect(0,0,thumb.width,thumb.height);
+  const scale=Math.min(thumb.width/state.width,thumb.height/state.height),w=state.width*scale,h=state.height*scale;
+  t.drawImage(source,(thumb.width-w)/2,(thumb.height-h)/2,w,h);
+  return thumb.toDataURL('image/jpeg',.78);
+};
+const libraryList = async () => {
+  const db=await openLibraryDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(PF_LIBRARY_STORE,'readonly'),req=tx.objectStore(PF_LIBRARY_STORE).getAll();
+    req.onsuccess=()=>resolve((req.result||[]).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)));
+    req.onerror=()=>reject(req.error);tx.oncomplete=()=>db.close();
+  });
+};
+const libraryGet = async id => {
+  const db=await openLibraryDB();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(PF_LIBRARY_STORE,'readonly'),req=tx.objectStore(PF_LIBRARY_STORE).get(id);
+    req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);tx.oncomplete=()=>db.close();
+  });
+};
+const saveProjectToLibrary = async () => {
+  try{
+    const now=Date.now(),existingId=state.libraryId||null,id=existingId||('pf-'+now+'-'+Math.random().toString(36).slice(2,8));
+    const record={id,name:state.name||'Untitled',width:state.width,height:state.height,updatedAt:now,thumbnail:projectThumbnail(),project:projectDataFromState()};
+    await libraryTransaction('readwrite',store=>store.put(record));
+    state.libraryId=id;setDirty(false);toast('Saved to PixelForge Library');
+    if(appShell.classList.contains('home-mode'))await renderHomeLibrary();
+  }catch(err){console.error(err);toast('Could not save to the browser library');}
+};
+const downloadProject = () => {
+  const data=projectDataFromState();
+  triggerDownload(new Blob([JSON.stringify(data)],{type:'application/json'}),`${safeName()}.pforge`);
+  toast('PixelForge project downloaded');
+};
+const removeLibraryProject = async id => {
+  try{await libraryTransaction('readwrite',store=>store.delete(id));if(state.libraryId===id)state.libraryId=null;await renderHomeLibrary();toast('Project removed from library');}
+  catch(err){console.error(err);toast('Could not remove project');}
+};
+const showEditor = () => {appShell.classList.remove('home-mode');homeScreen.classList.add('hidden');requestAnimationFrame(()=>{resizeStage();fitZoom();renderAll();});};
+const showHome = async () => {closeMenus();appShell.classList.add('home-mode');homeScreen.classList.remove('hidden');await renderHomeLibrary();};
+const renderHomeLibrary = async () => {
+  const grid=$('#homeLibraryGrid'),count=$('#homeLibraryCount');if(!grid||!count)return;
+  try{
+    const items=await libraryList();count.textContent=`${items.length} project${items.length===1?'':'s'}`;
+    if(!items.length){grid.innerHTML='<div class="home-empty"><strong>No saved PixelForge projects yet</strong>Save a project with Ctrl + S and it will appear here.</div>';return;}
+    grid.innerHTML=items.map(item=>`<article class="home-project-card" data-library-id="${escapeHTML(item.id)}">
+      <div class="home-project-thumb" data-home-action="open">${item.thumbnail?`<img src="${item.thumbnail}" alt="">`:'<span class="empty-thumb">◇</span>'}</div>
+      <div class="home-project-meta"><strong>${escapeHTML(item.name||'Untitled')}</strong><small>${item.width} × ${item.height} px</small><small>Saved ${new Date(item.updatedAt).toLocaleString()}</small>
+      <div class="home-project-actions"><button data-home-action="open">Open</button><button class="delete" data-home-action="delete">Delete</button></div></div></article>`).join('');
+  }catch(err){console.error(err);count.textContent='Library unavailable';grid.innerHTML='<div class="home-empty"><strong>Browser library unavailable</strong>You can still open and save .pforge files from your computer.</div>';}
+};
+const openLibraryProject = async id => {
+  try{const item=await libraryGet(id);if(!item?.project){toast('Saved project could not be found');return;}await openProjectData(item.project,item.name||'Saved project');state.libraryId=id;showEditor();toast('Saved project opened');}
+  catch(err){console.error(err);toast('Could not open saved project');}
+};
+const saveProject = () => saveProjectToLibrary();
 const loadCanvasImage = src => new Promise((resolve,reject)=>{
   const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('Image could not be loaded'));img.src=src;
 });
+const openProjectData = async (data,displayName='PixelForge project') => {
+  if(data.app!=='PixelForge Studio'||!validSize(data.width,data.height)||!Array.isArray(data.layers)||data.layers.length<1||data.layers.length>80)throw new Error('Invalid PixelForge project');
+  const loaded=[];
+  for(const item of data.layers){
+    const img=await loadCanvasImage(item.pixels);const layer=makeLayer(String(item.name).slice(0,90));
+    layer.canvas=makeCanvas(data.width,data.height);layer.canvas.getContext('2d').drawImage(img,0,0);
+    layer.visible=item.visible!==false;layer.opacity=clamp(Number(item.opacity)||0,0,1);layer.blend=['source-over','multiply','screen','overlay','darken','lighten','difference','soft-light','hard-light'].includes(item.blend)?item.blend:'source-over';
+    layer.locked=!!item.locked;layer.x=Number(item.x)||0;layer.y=Number(item.y)||0;layer.scaleX=Number(item.scaleX)||1;layer.scaleY=Number(item.scaleY)||1;
+    layer.type=['raster','group','text'].includes(item.type)?item.type:'raster';layer.textConfig=item.textConfig||null;
+    layer.expanded=item.expanded!==false;layer.clipToBelow=!!item.clipToBelow;layer.originalId=item.id;layer.originalParentId=item.parentId??null;
+    if(item.mask){layer.maskCanvas=makeCanvas(data.width,data.height);layer.maskCanvas.getContext('2d').drawImage(await loadCanvasImage(item.mask),0,0);}
+    if(layer.type!=='group')determineBounds(layer);loaded.push(layer);
+  }
+  state.width=data.width;state.height=data.height;state.resolution=Number(data.resolution)||72;state.name=String(data.name||displayName).slice(0,80);
+  const ids=new Map(loaded.map(l=>[l.originalId,l.id]));
+  for(const l of loaded){l.parentId=ids.get(l.originalParentId)??null;delete l.originalId;delete l.originalParentId;}
+  state.layers=loaded;normalizeHierarchy();
+  state.selectedIds=(Array.isArray(data.selectedIds)?data.selectedIds:[data.activeId]).map(id=>ids.get(id)).filter(Boolean);
+  state.activeId=ids.get(data.activeId)??state.selectedIds.at(-1)??loaded.at(-1).id;
+  if(!state.selectedIds.length)state.selectedIds=[state.activeId];
+  state.selection=null;state.cropRect=null;history=[];historyIndex=-1;resetAdjustments(false);resizeStage();fitZoom();record('Open project');setDirty(false);
+};
 const openProjectFile = async file => {
-  try{
-    const data=JSON.parse(await file.text());
-    if(data.app!=='PixelForge Studio'||!validSize(data.width,data.height)||!Array.isArray(data.layers)||data.layers.length<1||data.layers.length>40)throw new Error('Invalid PixelForge project');
-    const loaded=[];
-    for(const item of data.layers){
-      const img=await loadCanvasImage(item.pixels);const layer=makeLayer(String(item.name).slice(0,90));
-      layer.canvas=makeCanvas(data.width,data.height);layer.canvas.getContext('2d').drawImage(img,0,0);
-      layer.visible=item.visible!==false;layer.opacity=clamp(Number(item.opacity)||0,0,1);layer.blend=['source-over','multiply','screen','overlay','darken','lighten','difference','soft-light','hard-light'].includes(item.blend)?item.blend:'source-over';
-      layer.locked=!!item.locked;layer.x=Number(item.x)||0;layer.y=Number(item.y)||0;layer.scaleX=Number(item.scaleX)||1;layer.scaleY=Number(item.scaleY)||1;
-      layer.type=['raster','group','text'].includes(item.type)?item.type:'raster';layer.textConfig=item.textConfig||null;
-      layer.expanded=item.expanded!==false;layer.clipToBelow=!!item.clipToBelow;layer.originalId=item.id;layer.originalParentId=item.parentId??null;
-      if(item.mask){layer.maskCanvas=makeCanvas(data.width,data.height);layer.maskCanvas.getContext('2d').drawImage(await loadCanvasImage(item.mask),0,0);}
-      if(layer.type!=='group')determineBounds(layer);loaded.push(layer);
-    }
-    state.width=data.width;state.height=data.height;state.resolution=Number(data.resolution)||72;state.name=String(data.name||file.name.replace(/\.pforge$/,'')).slice(0,80);
-    const ids=new Map(loaded.map(l=>[l.originalId,l.id]));
-    for(const l of loaded){l.parentId=ids.get(l.originalParentId)??null;delete l.originalId;delete l.originalParentId;}
-    state.layers=loaded;normalizeHierarchy();
-    state.selectedIds=(Array.isArray(data.selectedIds)?data.selectedIds:[data.activeId]).map(id=>ids.get(id)).filter(Boolean);
-    state.activeId=ids.get(data.activeId)??state.selectedIds.at(-1)??loaded.at(-1).id;
-    if(!state.selectedIds.length)state.selectedIds=[state.activeId];
-    state.selection=null;state.cropRect=null;history=[];historyIndex=-1;resetAdjustments(false);resizeStage();fitZoom();record('Open project');setDirty(false);toast('Project opened');
-  }catch(err){console.error(err);toast('Could not open this project file');}
+  try{await openProjectData(JSON.parse(await file.text()),file.name.replace(/\.pforge$/i,''));state.libraryId=null;showEditor();toast('Project opened');}
+  catch(err){console.error(err);toast('Could not open this project file');}
 };
 // File > Open creates a new document at the image's original pixel dimensions.
 // File > Place image as layer is intentionally separate and never replaces it.
@@ -1651,10 +1792,10 @@ const openRasterDocument = async file => {
     state.width=w;state.height=h;state.resolution=72;
     state.name=file.name.replace(/\.[^.]*$/,'').slice(0,80)||'Opened image';
     determineBounds(layer);
-    state.layers=[layer];setSingleLayerSelection(layer.id);
+    state.layers=[layer];setSingleLayerSelection(layer.id);state.libraryId=null;
     state.selection=null;state.cropRect=null;state.panX=state.panY=0;
     history=[];historyIndex=-1;resetAdjustments(false);
-    resizeStage();fitZoom();record('Open original image');setDirty(false);
+    resizeStage();fitZoom();record('Open original image');setDirty(false);showEditor();
     setTool('move');toast(`Opened ${file.name} at original size (${w} × ${h})`);
   }catch(err){console.error('Image open failed',err);toast(`Could not open image: ${err.message}`);}
   finally{if(url)URL.revokeObjectURL(url);}
@@ -1671,7 +1812,7 @@ const importImage = async file => {
   }catch(err){console.error(err);toast('Could not import this image');}
 };
 const helpDialog = () => {
-  const shortcuts=[['V','Move layer'],['M','Rectangle selection'],['B','Brush'],['E','Eraser'],['G','Paint bucket'],['T','Text'],['U','Rectangle'],['C','Crop'],['H','Hand'],['Z','Zoom'],['Ctrl + Z','Undo'],['Ctrl + Shift + Z','Redo'],['Ctrl + D','Deselect'],['Ctrl + C / V','Copy / paste'],['Ctrl + S','Save editable PixelForge project'],['Ctrl + Shift + S','Export layered Photoshop PSD'],['Space + drag','Pan canvas'],['Ctrl + scroll','Zoom canvas'],['Shift + click layer','Select a layer range'],['Ctrl/Cmd + click layer','Toggle layers in multi-selection'],['Delete','Delete all highlighted layers / folders'],['Shift + corner drag','Resize proportionally'],['Alt + corner drag','Resize proportionally from center'],['Shift + Delete','Clear selected pixels'],['Ctrl + G','Group selected layer'],['Ctrl + Alt + G','Clipping mask'],['Enter','Apply crop'],['Arrows','Nudge selected layer(s)']];
+  const shortcuts=[['V','Move layer'],['M','Rectangle selection'],['B','Brush'],['E','Eraser'],['G','Paint bucket'],['T','Text'],['U','Rectangle'],['C','Crop'],['H','Hand'],['Z','Zoom'],['Ctrl + Z','Undo'],['Ctrl + Shift + Z','Redo'],['Ctrl + D','Deselect'],['Ctrl + C / V','Copy / paste'],['Ctrl + S','Save to PixelForge Library'],['Ctrl + Shift + S','Export layered Photoshop PSD'],['Space + drag','Pan canvas'],['Ctrl + scroll','Zoom canvas'],['Shift + click layer','Select a layer range'],['Ctrl/Cmd + click layer','Toggle layers in multi-selection'],['Delete','Delete all highlighted layers / folders'],['Shift + corner drag','Resize proportionally'],['Alt + corner drag','Resize proportionally from center'],['Shift + Delete','Clear selected pixels'],['Ctrl + G','Group selected layer'],['Ctrl + Alt + G','Clipping mask'],['Enter','Apply crop'],['Arrows','Nudge selected layer(s)']];
   openModal(`<div>${modalHead('Keyboard shortcuts','Speed up your editing workflow.')}
     <div class="help-grid">${shortcuts.map(([k,v])=>`<div><span>${v}</span><kbd>${k}</kbd></div>`).join('')}</div>
     <div class="modal-actions"><button class="confirm" data-close>Got it</button></div></div>`);
@@ -1875,9 +2016,9 @@ const documentInfoDialog=()=>{
 
 const menuDefinitions = {
   file:[
-    ['New Custom Document…','Ctrl+N',requestCustomDocument],['New From Presets…','',resetDocument],['Open image or project as document…','Ctrl+O',()=>$('#openInput').click()],['Open PSD…','',()=>$('#psdInput').click()],['Open PixelForge project…','',()=>$('#projectInput').click()],
+    ['Home','',showHome],['---'],['New Custom Document…','Ctrl+N',requestCustomDocument],['New From Presets…','',resetDocument],['Open image or project as document…','Ctrl+O',()=>$('#openInput').click()],['Open PSD…','',()=>$('#psdInput').click()],['Open PixelForge project…','',()=>$('#projectInput').click()],
     ['---'],['Place image as layer…','',()=>$('#imageInput').click()],['Open sample composition','',()=>{if(!dirty||confirm('Discard unsaved changes and load the sample?'))createDemoProject();}],
-    ['---'],['Save project','Ctrl+S',saveProject],['Save As…','',exportDialog],['Export','',[
+    ['---'],['Save to PixelForge Library','Ctrl+S',saveProject],['Download PixelForge project…','',downloadProject],['Save As…','',exportDialog],['Export','',[
       ['PNG…','',()=>exportImage('png')],['JPEG…','',()=>exportImage('jpeg')],['WebP…','',()=>exportImage('webp')],['Photoshop PSD (layers)…','Ctrl+Shift+S',exportPSD],['Export options…','',exportDialog]
     ]],['---'],['Document information…','',documentInfoDialog],['Close document','',()=>{if(dirty&&!confirm('Discard unsaved changes?'))return;createBaseDocument(1280,800,true,'Untitled-1');}]
   ],
@@ -1938,6 +2079,20 @@ const setupMenus = () => {
 const setupUI = () => {
   setupMenus();
   $$('.tool').forEach(btn=>btn.addEventListener('click',()=>setTool(btn.dataset.tool)));
+  $('.brand').addEventListener('click',showHome);
+  $('#homeNewCustom').addEventListener('click',requestCustomDocument);
+  $('#homeActionNew').addEventListener('click',requestCustomDocument);
+  $('#homePresets').addEventListener('click',resetDocument);
+  $('#homeActionPreset').addEventListener('click',resetDocument);
+  $('#homeOpenComputer').addEventListener('click',()=>$('#openInput').click());
+  $('#homeActionOpen').addEventListener('click',()=>$('#openInput').click());
+  $('#homeYourFiles').addEventListener('click',()=>$('#homeLibraryGrid').scrollIntoView({behavior:'smooth',block:'start'}));
+  $('#homeLibraryGrid').addEventListener('click',e=>{
+    const card=e.target.closest('[data-library-id]'),action=e.target.closest('[data-home-action]')?.dataset.homeAction;
+    if(!card||!action)return;const id=card.dataset.libraryId;
+    if(action==='open')openLibraryProject(id);
+    if(action==='delete'&&confirm('Delete this project from the PixelForge Library?'))removeLibraryProject(id);
+  });
   $('#headerNew').addEventListener('click',requestCustomDocument);
   $('#headerResize').addEventListener('click',canvasSizeDialog);
   $('#canvasSizeLabel').addEventListener('click',canvasSizeDialog);
@@ -2168,7 +2323,7 @@ const setupKeys = () => {
     if(files.length){e.preventDefault();for(const f of files)await importImage(f);}else if(internalClipboard){e.preventDefault();pasteSelection();}
   });
 };
-const init = () => {setupUI();setupPointers();setupKeys();createBaseDocument(1280,800,false,'Untitled-1');window.addEventListener('resize',()=>{if(state.zoom*state.width>viewport.clientWidth*1.6)fitZoom();});};
+const init = () => {setupUI();setupPointers();setupKeys();createBaseDocument(1280,800,false,'Untitled-1');showHome();window.addEventListener('resize',()=>{if(!appShell.classList.contains('home-mode')&&state.zoom*state.width>viewport.clientWidth*1.6)fitZoom();});};
 init();
 })();
 
