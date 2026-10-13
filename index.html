@@ -2077,10 +2077,10 @@ const documentInfoDialog=()=>{
 
 const activateInspectorTab = name => {
   const valid=['properties','color','adjustments'];if(!valid.includes(name))name='properties';
-  $('.inspector-tabs [data-inspector-tab]').forEach(btn=>{
+  $$('.inspector-tabs [data-inspector-tab]').forEach(btn=>{
     const active=btn.dataset.inspectorTab===name;btn.classList.toggle('active',active);btn.setAttribute('aria-selected',active?'true':'false');
   });
-  $('.inspector-tab-panel[data-inspector-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.inspectorPanel===name));
+  $$('.inspector-tab-panel[data-inspector-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.inspectorPanel===name));
   try{localStorage.setItem('pixelforge:inspectorTab',name);}catch{}
 };
 const menuDefinitions = {
