@@ -126,6 +126,13 @@
 .adjustment-picker button{border:1px solid #52546a;background:#303242;color:#e4e0f4;border-radius:6px;padding:10px;text-align:left}
 .adjustment-picker button:hover{border-color:#ae9aff;background:#433759}
 
+.custom-doc-form .field-row{margin:12px 0}
+.custom-doc-form .modal-actions{margin-top:18px}
+.custom-doc-summary{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:12px 13px;border:1px solid #4a4c5e;background:#1a1c27;border-radius:7px}
+.custom-doc-summary strong{font-size:14px;color:#f1edff}
+.custom-doc-summary span{color:#a99cff;font:11px ui-monospace,SFMono-Regular,Consolas,monospace}
+.custom-doc-note{margin-top:12px!important;color:#9ca0b4!important;font-size:11px!important}
+
 /* The Create control must never be clipped by narrow preset-details columns. */
 .newdoc-modal .nd-actions{display:flex;flex-direction:column;align-items:stretch;gap:8px;flex-shrink:0}
 .newdoc-modal .nd-actions .modal-actions{display:flex!important;gap:8px;flex:0 0 auto;margin:0!important;width:100%;justify-content:stretch}
@@ -182,7 +189,7 @@
       <div class="document-title"><span class="unsaved-dot" id="dirtyDot"></span><span id="documentName">Untitled design</span><span class="document-extension">.pforge</span></div>
       <div class="header-spacer"></div>
       <span class="offline-label"><span class="offline-dot"></span> Private · Local editor</span>
-      <button class="header-btn secondary" id="headerNew" title="Create a custom-sized document (Ctrl+N)"><svg><use href="#i-plus"/></svg> New</button>
+      <button class="header-btn secondary" id="headerNew" title="Create a custom-sized document (Ctrl+N)"><svg><use href="#i-plus"/></svg> New Custom</button>
       <button class="header-btn secondary" id="headerResize" title="Change canvas size">Resize</button>
       <button class="header-btn secondary" id="headerOpen" title="Open image at original pixel dimensions, PSD, or PixelForge project"><svg><use href="#i-image"/></svg> Open</button>
       <button class="header-btn primary" id="headerExport"><svg><use href="#i-download"/></svg> Export <svg class="small-chevron"><use href="#i-chevron"/></svg></button>
@@ -1333,6 +1340,45 @@ const documentPresets = {
   Mobile: [{name:'Story / Reel',w:1080,h:1920,ppi:72},{name:'Phone wallpaper',w:1170,h:2532,ppi:72}],
   'Film & Video': [{name:'Full HD',w:1920,h:1080,ppi:72},{name:'2K video',w:2048,h:1080,ppi:72},{name:'4K UHD',w:3840,h:2160,ppi:72}]
 };
+const customDocumentDialog = () => {
+  openModal(`<form class="custom-doc-form">${modalHead('New Custom Document','Enter the exact document size you want. Presets are optional and available separately.')}
+    <label>Document name<input name="name" value="Untitled-1" maxlength="70" required></label>
+    <div class="field-row"><label>Width<input type="number" name="width" min="1" max="10000" step="any" value="1920" required></label><label>Height<input type="number" name="height" min="1" max="10000" step="any" value="1080" required></label></div>
+    <div class="field-row"><label>Units<select name="units"><option value="px">Pixels</option><option value="in">Inches</option><option value="cm">Centimeters</option></select></label><label>Resolution<input type="number" name="ppi" min="1" max="1200" value="72" required></label></div>
+    <div class="field-row"><label>Background<select name="background"><option value="transparent">Transparent</option><option value="white">White</option><option value="black">Black</option><option value="custom">Custom color</option></select></label><label id="customDocColorLabel" class="hidden">Background color<input name="bgColor" type="color" value="#ffffff"></label></div>
+    <div class="custom-doc-summary"><strong id="customDocPixels">1920 × 1080 pixels</strong><span id="customDocMegapixels">2.07 MP</span></div>
+    <p class="custom-doc-note">PixelForge creates an RGB, 8-bit sRGB document. Maximum size is 10,000 px on either side and 36 megapixels total to keep browser memory use stable.</p>
+    <div class="modal-actions"><button type="button" id="customDocPresets">Browse presets…</button><button type="button" data-close>Cancel</button><button type="submit" class="confirm">Create Document</button></div>
+  </form>`,data=>{
+    const units=String(data.get('units')),ppi=clamp(Number(data.get('ppi'))||72,1,1200);
+    const factor=units==='in'?ppi:units==='cm'?ppi/2.54:1;
+    const w=Math.round(Number(data.get('width'))*factor),h=Math.round(Number(data.get('height'))*factor);
+    if(!validSize(w,h))return;
+    const bg=String(data.get('background'));
+    createBaseDocument(w,h,bg==='transparent',String(data.get('name')).trim()||'Untitled-1',bg==='black'?'#000000':bg==='custom'?String(data.get('bgColor')):'#ffffff',ppi);
+    closeModal();toast(`Created custom document · ${w} × ${h}px`);
+  });
+  const form=$('#modalContent form'),field=name=>form.elements.namedItem(name);
+  const updateSummary=()=>{
+    const units=field('units').value,ppi=clamp(Number(field('ppi').value)||72,1,1200);
+    const factor=units==='in'?ppi:units==='cm'?ppi/2.54:1;
+    const w=Math.max(0,Math.round((Number(field('width').value)||0)*factor));
+    const h=Math.max(0,Math.round((Number(field('height').value)||0)*factor));
+    $('#customDocPixels').textContent=`${w.toLocaleString()} × ${h.toLocaleString()} pixels`;
+    $('#customDocMegapixels').textContent=`${((w*h)/1e6).toFixed(2)} MP`;
+  };
+  ['width','height','ppi'].forEach(name=>field(name).addEventListener('input',updateSummary));
+  field('units').addEventListener('change',updateSummary);
+  field('background').addEventListener('change',()=>{
+    $('#customDocColorLabel').classList.toggle('hidden',field('background').value!=='custom');
+  });
+  $('#customDocPresets').addEventListener('click',()=>{closeModal();newDocumentDialog();});
+  updateSummary();
+};
+const requestCustomDocument = () => {
+  if(dirty&&!confirm('Create a new document and discard unsaved changes?'))return;
+  customDocumentDialog();
+};
 const newDocumentDialog = () => {
   const tabs=Object.keys(documentPresets);
   openModal(`<form class="new-doc-form">${modalHead('New document','Choose a preset or create your own document. All documents use 8-bit sRGB.')}
@@ -1340,7 +1386,7 @@ const newDocumentDialog = () => {
     <div class="nd-body"><div class="nd-caption" id="ndCaption">RECENT & COMMON PRESETS</div><div class="nd-presets" id="ndPresets"></div></div></div>
     <div class="nd-right"><div class="nd-caption">PRESET DETAILS</div>
       <label>Document name<input name="name" value="Untitled-1" maxlength="70" required></label>
-      <div class="nd-dim"><label>Width<input type="number" name="width" min="1" max="6000" step="any" value="1280" required></label><label>Height<input type="number" name="height" min="1" max="6000" step="any" value="800" required></label></div>
+      <div class="nd-dim"><label>Width<input type="number" name="width" min="1" max="10000" step="any" value="1280" required></label><label>Height<input type="number" name="height" min="1" max="10000" step="any" value="800" required></label></div>
       <div class="nd-dim"><label>Units<select name="units"><option value="px">Pixels</option><option value="in">Inches</option><option value="cm">Centimeters</option></select></label><label>Orientation<div class="nd-orient"><button type="button" data-orient="landscape" class="active" title="Landscape">▭</button><button type="button" data-orient="portrait" title="Portrait">▯</button></div></label></div>
       <div class="nd-dim"><label>Resolution<input type="number" name="ppi" min="1" max="1200" value="72"></label><label>Resolution unit<select name="ppiUnit"><option value="ppi">Pixels / Inch</option><option value="ppcm">Pixels / Centimeter</option></select></label></div>
       <div class="nd-dim"><label>Color mode<select name="colorMode"><option value="rgb">RGB Color</option></select></label><label>Bit depth<select name="bits"><option value="8">8 bit</option></select></label></div>
@@ -1386,7 +1432,7 @@ const newDocumentDialog = () => {
   $('#ndSavePreset').addEventListener('click',()=>{
     const ppi=Number(fld('ppi').value)*(fld('ppiUnit').value==='ppcm'?2.54:1),units=fld('units').value,ratio=units==='in'?ppi:units==='cm'?ppi/2.54:1;
     const preset={name:(prompt('Name this document preset',fld('name').value||'Custom canvas')||'').trim().slice(0,55),w:Math.round(Number(fld('width').value)*ratio),h:Math.round(Number(fld('height').value)*ratio),ppi:Math.round(ppi)};
-    if(!preset.name)return;if(!validPreset(preset)||preset.w>6000||preset.h>6000){toast('The preset dimensions are outside document limits');return;}
+    if(!preset.name)return;if(!validPreset(preset)||preset.w>10000||preset.h>10000){toast('The preset dimensions are outside document limits');return;}
     documentPresets.Saved=[preset,...documentPresets.Saved.filter(p=>p.name!==preset.name)].slice(0,18);
     try{localStorage.setItem('pixelforge:customPresets',JSON.stringify(documentPresets.Saved));}catch{toast('The browser could not store this preset');return;}
     activeTab='Saved';selectedName=preset.name;renderPresets();toast('Custom document preset saved');
@@ -1401,7 +1447,7 @@ const newDocumentDialog = () => {
   renderPresets();showCount();
 };
 const validSize = (w,h) => {
-  if(!Number.isInteger(w)||!Number.isInteger(h)||w<1||h<1||w>6000||h>6000||w*h>16000000){toast('Use 1 to 6000 pixels per side, up to 16 megapixels');return false;}
+  if(!Number.isInteger(w)||!Number.isInteger(h)||w<1||h<1||w>10000||h>10000||w*h>36000000){toast('Use 1 to 10,000 pixels per side, up to 36 megapixels');return false;}
   return true;
 };
 const resizeDialog = () => {
@@ -1813,7 +1859,7 @@ const documentInfoDialog=()=>{
 
 const menuDefinitions = {
   file:[
-    ['New custom document…','Ctrl+N',resetDocument],['Open image or project as document…','Ctrl+O',()=>$('#openInput').click()],['Open PSD…','',()=>$('#psdInput').click()],['Open PixelForge project…','',()=>$('#projectInput').click()],
+    ['New Custom Document…','Ctrl+N',requestCustomDocument],['New From Presets…','',resetDocument],['Open image or project as document…','Ctrl+O',()=>$('#openInput').click()],['Open PSD…','',()=>$('#psdInput').click()],['Open PixelForge project…','',()=>$('#projectInput').click()],
     ['---'],['Place image as layer…','',()=>$('#imageInput').click()],['Open sample composition','',()=>{if(!dirty||confirm('Discard unsaved changes and load the sample?'))createDemoProject();}],
     ['---'],['Save project','Ctrl+S',saveProject],['Save As…','',exportDialog],['Export','',[
       ['PNG…','',()=>exportImage('png')],['JPEG…','',()=>exportImage('jpeg')],['WebP…','',()=>exportImage('webp')],['Photoshop PSD (layers)…','Ctrl+Shift+S',exportPSD],['Export options…','',exportDialog]
@@ -1876,7 +1922,7 @@ const setupMenus = () => {
 const setupUI = () => {
   setupMenus();
   $$('.tool').forEach(btn=>btn.addEventListener('click',()=>setTool(btn.dataset.tool)));
-  $('#headerNew').addEventListener('click',resetDocument);
+  $('#headerNew').addEventListener('click',requestCustomDocument);
   $('#headerResize').addEventListener('click',canvasSizeDialog);
   $('#canvasSizeLabel').addEventListener('click',canvasSizeDialog);
   $('#headerOpen').addEventListener('click',()=>$('#openInput').click());
@@ -2075,7 +2121,7 @@ const setupKeys = () => {
     const ctrl=e.ctrlKey||e.metaKey,key=e.key.toLowerCase();
     if(ctrl){
       if(key==='g'&&e.altKey){e.preventDefault();toggleClipping();return;}
-      const combo={z:()=>e.shiftKey?redo():undo(),y:redo(),s:()=>e.shiftKey?exportPSD():saveProject,o:()=>$('#openInput').click(),n:()=>e.shiftKey?addLayer('Layer '+nextLayerId):newDocumentDialog(),g:()=>newGroup(true),j:duplicateLayer,i:()=>applyPreset('invert'),d:deselect,a:selectAll,c:copySelection,e:mergeDown,'0':fitZoom,'1':()=>setZoom(1),'+':()=>setZoom(state.zoom*1.25),'=':()=>setZoom(state.zoom*1.25),'-':()=>setZoom(state.zoom/1.25)};
+      const combo={z:()=>e.shiftKey?redo():undo(),y:redo(),s:()=>e.shiftKey?exportPSD():saveProject,o:()=>$('#openInput').click(),n:()=>e.shiftKey?addLayer('Layer '+nextLayerId):requestCustomDocument(),g:()=>newGroup(true),j:duplicateLayer,i:()=>applyPreset('invert'),d:deselect,a:selectAll,c:copySelection,e:mergeDown,'0':fitZoom,'1':()=>setZoom(1),'+':()=>setZoom(state.zoom*1.25),'=':()=>setZoom(state.zoom*1.25),'-':()=>setZoom(state.zoom/1.25)};
       if(combo[key]){e.preventDefault();combo[key]();}return;
     }
     if(e.code==='Space'){e.preventDefault();panHolding=true;overlay.style.cursor='grab';return;}
