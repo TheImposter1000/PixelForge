@@ -2471,7 +2471,7 @@ const cloudIdentity=()=>cloudUser?.id||null;
 const loadCloudSdk=()=>new Promise((resolve,reject)=>{
   if(window.supabase?.createClient){resolve(window.supabase);return;}
   const tag=document.createElement('script');
-  tag.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  tag.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
   tag.async=true;
   tag.onload=()=>window.supabase?.createClient?resolve(window.supabase):reject(new Error('Cloud authentication SDK is unavailable'));
   tag.onerror=()=>reject(new Error('Could not load cloud authentication SDK'));
@@ -2509,6 +2509,8 @@ const initCloud=async()=>{
     const {data,error}=await cloudClient.auth.getSession();
     if(error)throw error;
     cloudUser=data.session?.user||null;
+    const authError=new URLSearchParams(location.search).get('error_description');
+    if(authError)toast('Google sign-in failed: '+authError.slice(0,200));
     updateAccountUI();
     if(appShell.classList.contains('home-mode'))renderCloudProjects();
   }catch(err){
@@ -2517,6 +2519,29 @@ const initCloud=async()=>{
     updateAccountUI();
     if(appShell.classList.contains('home-mode'))renderCloudProjects();
   }
+};
+const googleProviderSetupHtml=()=>'<strong>Google sign-in needs provider setup.</strong> Create Google OAuth credentials, then enable Google in Supabase and add the credentials there. '
+  +'<a href="https://supabase.com/dashboard/project/mqxstxdhggpoyichmisd/auth/providers?provider=Google" target="_blank" rel="noopener noreferrer">Supabase Google provider</a> · '
+  +'<a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener noreferrer">Google OAuth credentials</a>. '
+  +'Use <code>https://mqxstxdhggpoyichmisd.supabase.co/auth/v1/callback</code> as the authorized redirect URI and '
+  +'<code>https://theimposter1000.github.io</code> as the browser origin.';
+const inspectGoogleProvider=async()=>{
+  if(!cloudConfigured())return null;
+  const cfg=cloudSettings();
+  try{
+    const response=await fetch(cfg.url+'/auth/v1/settings',{
+      headers:{apikey:cfg.publishableKey},cache:'no-store'
+    });
+    if(!response.ok)throw new Error('Could not read provider settings');
+    const settings=await response.json();
+    if(typeof settings.external?.google==='boolean')return settings.external.google;
+  }catch(error){console.warn('Could not check Google provider status',error);}
+  return null;
+};
+const reportGoogleError=message=>{
+  const label=$('#authError'),info=$('#authMessage');
+  if(label)label.textContent=message;
+  if(info)info.innerHTML=googleProviderSetupHtml();
 };
 const accountErrorText=(error)=>String(error?.message||'The account request could not be completed.').slice(0,250);
 const openAccountDialog=()=>{
@@ -2554,16 +2579,46 @@ const openAccountDialog=()=>{
   };
   $('#authSignInTab').addEventListener('click',()=>setMode('signin'));
   $('#authSignUpTab').addEventListener('click',()=>setMode('signup'));
+  // Validate the actual Supabase provider instead of offering a button that fails silently.
+  inspectGoogleProvider().then(enabled=>{
+    const button=$('#authGoogle');
+    if(!button||!modalOpen)return;
+    if(enabled===false){
+      button.textContent='Continue with Google (setup required)';
+      const info=$('#authMessage');
+      if(info)info.innerHTML=googleProviderSetupHtml();
+    }
+  });
   $('#authGoogle').addEventListener('click',async()=>{
-    if(!cloudClient)return;
+    const button=$('#authGoogle');if(!button)return;
+    if(!cloudClient){reportGoogleError('Cloud authentication is still connecting. Reopen this dialog in a moment.');return;}
+    button.disabled=true;button.textContent='Checking Google sign-in…';
+    $('#authError').textContent='';
     try{
-      $('#authGoogle').disabled=true;
-      const {error}=await cloudClient.auth.signInWithOAuth({
+      const providerEnabled=await inspectGoogleProvider();
+      if(providerEnabled===false){
+        reportGoogleError('Google sign-in is not enabled for this Supabase project yet.');
+        return;
+      }
+      button.textContent='Opening Google…';
+      const {data,error}=await cloudClient.auth.signInWithOAuth({
         provider:'google',
-        options:{redirectTo:location.origin+location.pathname}
+        options:{redirectTo:location.origin+location.pathname,skipBrowserRedirect:true}
       });
       if(error)throw error;
-    }catch(error){$('#authError').textContent=accountErrorText(error);$('#authGoogle').disabled=false;}
+      if(!data?.url)throw new Error('Google did not return a sign-in URL');
+      window.location.assign(data.url);
+    }catch(error){
+      const message=accountErrorText(error);
+      if(/provider.*not.enabled|unsupported.provider|invalid.*provider|oauth.provider/i.test(message)){
+        reportGoogleError('Google sign-in has not been enabled in Supabase.');
+      }else{
+        $('#authError').textContent='Google sign-in could not start: '+message;
+      }
+    }finally{
+      const active=$('#authGoogle');
+      if(active){active.disabled=false;active.textContent='Continue with Google';}
+    }
   });
   const form=$('#cloudAuthForm');
   form.addEventListener('submit',async event=>{
