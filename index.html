@@ -998,3 +998,1003 @@ const transformLayer = (d,point,constrain=false) => {
 };
 const dashedBox = (r,color='#a997ff') => {
   octx.lineWidth=1.4/Math.max(state.zoom,.1);octx.strokeStyle='#070612';octx.setLineDash([6/state.zoom,5/state.zoom]);
+  octx.strokeRect(r.x+.5,r.y+.5,r.w,r.h);
+  octx.strokeStyle=color;octx.lineDashOffset=5/state.zoom;octx.strokeRect(r.x+.5,r.y+.5,r.w,r.h);octx.lineDashOffset=0;octx.setLineDash([]);
+};
+const drawShapePath = (target,t,rect) => {
+  target.beginPath();
+  if(t==='ellipse')target.ellipse(rect.x+rect.w/2,rect.y+rect.h/2,Math.max(.1,rect.w/2),Math.max(.1,rect.h/2),0,0,Math.PI*2);
+  else target.rect(rect.x,rect.y,rect.w,rect.h);
+};
+const drawOverlay = () => {
+  octx.clearRect(0,0,state.width,state.height);
+  octx.save();
+  if(gridEnabled){
+    const step=50;octx.beginPath();
+    for(let x=step;x<state.width;x+=step){octx.moveTo(x,0);octx.lineTo(x,state.height);}
+    for(let y=step;y<state.height;y+=step){octx.moveTo(0,y);octx.lineTo(state.width,y);}
+    octx.strokeStyle='#756e9450';octx.lineWidth=.7/state.zoom;octx.stroke();
+  }
+  const selectedLayer=getActive();
+  if(state.tool==='move'&&selectedLayer?.visible){
+    const b=docLayerBounds(selectedLayer);
+    if(b){octx.strokeStyle='#9c85ff';octx.lineWidth=1.2/state.zoom;octx.setLineDash([6/state.zoom,4/state.zoom]);octx.strokeRect(b.x,b.y,b.w,b.h);octx.setLineDash([]);
+      for(const [x,y] of [[b.x,b.y],[b.x+b.w,b.y],[b.x,b.y+b.h],[b.x+b.w,b.y+b.h]]){
+        octx.fillStyle='#f8f6ff';octx.fillRect(x-3/state.zoom,y-3/state.zoom,6/state.zoom,6/state.zoom);octx.strokeRect(x-3/state.zoom,y-3/state.zoom,6/state.zoom,6/state.zoom);
+      }
+    }
+  }
+  if(state.selection){
+    const s=state.selection;dashedBox(s,'#ffffff');
+  }
+  if(state.cropRect){
+    const r=state.cropRect;
+    octx.fillStyle='#0708109e';octx.fillRect(0,0,state.width,state.height);
+    octx.clearRect(r.x,r.y,r.w,r.h);
+    octx.lineWidth=2/state.zoom;octx.strokeStyle='#eceaff';octx.strokeRect(r.x,r.y,r.w,r.h);
+    octx.lineWidth=1/state.zoom;octx.strokeStyle='#ffffff80';
+    for(let a=1;a<=2;a++){
+      octx.beginPath();octx.moveTo(r.x+r.w*a/3,r.y);octx.lineTo(r.x+r.w*a/3,r.y+r.h);
+      octx.moveTo(r.x,r.y+r.h*a/3);octx.lineTo(r.x+r.w,r.y+r.h*a/3);octx.stroke();
+    }
+  }
+  if(drawInteraction && ['rect','ellipse'].includes(drawInteraction.tool)){
+    const r=rectFromPoints(drawInteraction.start,drawInteraction.end,drawInteraction.shift);
+    octx.save();octx.fillStyle=state.color+'80';octx.strokeStyle=state.color;
+    octx.lineWidth=state.strokeWidth;drawShapePath(octx,drawInteraction.tool,r);
+    if(state.shapeFilled)octx.fill();octx.stroke();octx.restore();
+  }
+  if(drawInteraction?.tool==='gradient'){
+    const a=drawInteraction.start,b=drawInteraction.end;
+    octx.beginPath();octx.moveTo(a.x,a.y);octx.lineTo(b.x,b.y);octx.lineWidth=2/state.zoom;octx.strokeStyle='#e7dfff';octx.stroke();
+    for(const p of [a,b]){octx.beginPath();octx.arc(p.x,p.y,5/state.zoom,0,Math.PI*2);octx.fillStyle='#9a7fff';octx.fill();}
+  }
+  if(cursorPoint && ['brush','eraser'].includes(state.tool)){
+    octx.beginPath();octx.arc(cursorPoint.x,cursorPoint.y,state.brushSize/2,0,Math.PI*2);
+    octx.lineWidth=1/state.zoom;octx.strokeStyle='#000c';octx.stroke();octx.strokeStyle='#fff';octx.setLineDash([3/state.zoom,3/state.zoom]);octx.stroke();octx.setLineDash([]);
+  }
+  octx.restore();
+};
+const clipToSelection = (target,layer) => {
+  if(!state.selection)return;
+  const s=state.selection;
+  const a=localPoint(layer,{x:s.x,y:s.y}),b=localPoint(layer,{x:s.x+s.w,y:s.y+s.h});
+  target.beginPath();target.rect(Math.min(a.x,b.x),Math.min(a.y,b.y),Math.abs(b.x-a.x),Math.abs(b.y-a.y));target.clip();
+};
+const startBrush = (layer,point,eraser=false) => {
+  const target=layer.canvas.getContext('2d');const p=localPoint(layer,point);
+  target.save();clipToSelection(target,layer);
+  target.globalAlpha=state.brushOpacity/100;
+  target.globalCompositeOperation=eraser?'destination-out':'source-over';
+  target.lineWidth=state.brushSize/((Math.abs(layer.scaleX)+Math.abs(layer.scaleY))/2);
+  target.lineCap='round';target.lineJoin='round';target.strokeStyle=state.color;target.fillStyle=state.color;
+  target.beginPath();target.arc(p.x,p.y,target.lineWidth/2,0,Math.PI*2);target.fill();
+  target.beginPath();target.moveTo(p.x,p.y);
+  drawInteraction={tool:eraser?'eraser':'brush',layerId:layer.id,target,last:p};
+};
+const continueBrush = point => {
+  const d=drawInteraction,layer=state.layers.find(l=>l.id===d.layerId);if(!layer)return;
+  const p=localPoint(layer,point);
+  d.target.lineTo(p.x,p.y);d.target.stroke();d.target.beginPath();d.target.moveTo(p.x,p.y);d.last=p;
+  requestRender();
+};
+const endBrush = () => {
+  const d=drawInteraction;if(!d)return;
+  d.target.restore();const l=state.layers.find(l=>l.id===d.layerId);
+  if(l){l.type='raster';l.textConfig=null;determineBounds(l);}drawInteraction=null;
+  record(d.tool==='eraser'?'Erase':'Brush stroke');
+};
+const applyShape = (t,r) => {
+  const layer=editLayer();if(!layer)return;
+  if(r.w<1||r.h<1)return;
+  const a=localPoint(layer,{x:r.x,y:r.y}),b=localPoint(layer,{x:r.x+r.w,y:r.y+r.h});
+  const local={x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(b.x-a.x),h:Math.abs(b.y-a.y)};
+  const target=layer.canvas.getContext('2d');target.save();clipToSelection(target,layer);
+  target.fillStyle=state.color;target.strokeStyle=state.color;
+  target.lineWidth=state.strokeWidth/Math.max(.1,layer.scaleX);drawShapePath(target,t,local);
+  if(state.shapeFilled)target.fill();else target.stroke();target.restore();
+  layer.type='raster';layer.textConfig=null;determineBounds(layer);record(t==='rect'?'Draw rectangle':'Draw ellipse');
+};
+const applyGradient = (a,b) => {
+  const l=editLayer();if(!l)return;
+  const p=localPoint(l,a),q=localPoint(l,b),t=l.canvas.getContext('2d');
+  t.save();clipToSelection(t,l);const gradient=t.createLinearGradient(p.x,p.y,q.x===p.x&&q.y===p.y?q.x+1:q.x,q.y);
+  gradient.addColorStop(0,state.color);gradient.addColorStop(1,state.secondary);t.fillStyle=gradient;t.fillRect(0,0,state.width,state.height);t.restore();
+  l.type='raster';l.textConfig=null;determineBounds(l);record('Gradient fill');
+};
+const floodFill = point => {
+  const l=editLayer();if(!l)return;
+  const p=localPoint(l,point),x=Math.floor(p.x),y=Math.floor(p.y),w=state.width,h=state.height;
+  if(x<0||y<0||x>=w||y>=h)return;
+  const c=l.canvas.getContext('2d',{willReadFrequently:true}),im=c.getImageData(0,0,w,h),data=im.data;
+  const origin=(y*w+x)*4,target=[data[origin],data[origin+1],data[origin+2],data[origin+3]];
+  const replacement=[...colorToRGB(state.color),255];
+  if(target.every((n,i)=>n===replacement[i]))return;
+  const tol=state.fillTolerance*2.55;
+  const inside=(ix,iy) => !state.selection||(ix*l.scaleX+l.x>=state.selection.x&&iy*l.scaleY+l.y>=state.selection.y&&ix*l.scaleX+l.x<state.selection.x+state.selection.w&&iy*l.scaleY+l.y<state.selection.y+state.selection.h);
+  if(!inside(x,y))return;
+  const seen=new Uint8Array(w*h),queue=new Int32Array(w*h);let head=0,tail=0;
+  queue[tail++]=y*w+x;seen[y*w+x]=1;
+  while(head<tail){
+    const pos=queue[head++],i=pos*4,ix=pos%w,iy=(pos/w)|0;
+    if(!inside(ix,iy))continue;
+    if(Math.max(Math.abs(data[i]-target[0]),Math.abs(data[i+1]-target[1]),Math.abs(data[i+2]-target[2]),Math.abs(data[i+3]-target[3]))>tol)continue;
+    data[i]=replacement[0];data[i+1]=replacement[1];data[i+2]=replacement[2];data[i+3]=255;
+    if(ix>0&&!seen[pos-1]){queue[tail++]=pos-1;seen[pos-1]=1;}
+    if(ix<w-1&&!seen[pos+1]){queue[tail++]=pos+1;seen[pos+1]=1;}
+    if(iy>0&&!seen[pos-w]){queue[tail++]=pos-w;seen[pos-w]=1;}
+    if(iy<h-1&&!seen[pos+w]){queue[tail++]=pos+w;seen[pos+w]=1;}
+  }
+  c.putImageData(im,0,0);l.type='raster';l.textConfig=null;determineBounds(l);record('Paint bucket fill');
+};
+const sampleColor = point => {
+  const p=docPoint({clientX:overlay.getBoundingClientRect().left+point.x/state.width*overlay.getBoundingClientRect().width,clientY:overlay.getBoundingClientRect().top+point.y/state.height*overlay.getBoundingClientRect().height});
+  const d=ctx.getImageData(Math.min(state.width-1,Math.floor(p.x)),Math.min(state.height-1,Math.floor(p.y)),1,1).data;
+  setColor(hexFromRGB(d[0],d[1],d[2]));toast(`Sampled ${state.color.toUpperCase()}`);
+};
+const selectAll = () => {state.selection={x:0,y:0,w:state.width,h:state.height};requestRender();};
+const deselect = () => {state.selection=null;requestRender();};
+const clearSelected = () => {
+  const l=editLayer();if(!l)return;
+  if(!state.selection){toast('Draw a selection first (M)');return;}
+  const t=l.canvas.getContext('2d'),s=state.selection,a=localPoint(l,{x:s.x,y:s.y}),b=localPoint(l,{x:s.x+s.w,y:s.y+s.h});
+  t.clearRect(Math.min(a.x,b.x),Math.min(a.y,b.y),Math.abs(b.x-a.x),Math.abs(b.y-a.y));
+  l.type='raster';l.textConfig=null;determineBounds(l);record('Clear selected pixels');
+};
+const copySelection = () => {
+  if(!state.selection){toast('Make a selection first (M)');return;}
+  const s=state.selection,w=Math.max(1,Math.floor(s.w)),h=Math.max(1,Math.floor(s.h));
+  internalClipboard=makeCanvas(w,h);internalClipboard.getContext('2d').drawImage(canvas,Math.floor(s.x),Math.floor(s.y),w,h,0,0,w,h);
+  toast(`Copied ${w} × ${h} pixels`);
+};
+const pasteSelection = () => {
+  if(!internalClipboard){toast('Copy a selection first');return;}
+  const l=addLayer('Pasted pixels',{},false),t=l.canvas.getContext('2d');
+  const x=Math.max(0,Math.round((state.width-internalClipboard.width)/2)),y=Math.max(0,Math.round((state.height-internalClipboard.height)/2));
+  t.drawImage(internalClipboard,x,y);determineBounds(l);record('Paste selection');setTool('move');
+};
+const applyCrop = () => {
+  if(!state.cropRect){toast('Draw a crop region first');return;}
+  const r=state.cropRect,x=Math.floor(r.x),y=Math.floor(r.y),w=Math.max(1,Math.ceil(r.w)),h=Math.max(1,Math.ceil(r.h));
+  if(w<10||h<10){toast('Crop area is too small');return;}
+  for(const l of state.layers){
+    const n=makeCanvas(w,h),t=n.getContext('2d');t.save();t.translate(l.x-x,l.y-y);t.scale(l.scaleX,l.scaleY);t.drawImage(l.canvas,0,0);t.restore();
+    l.canvas=n;if(l.maskCanvas){const m=makeCanvas(w,h),mc=m.getContext('2d');mc.translate(l.x-x,l.y-y);mc.scale(l.scaleX,l.scaleY);mc.drawImage(l.maskCanvas,0,0);l.maskCanvas=m;}l.x=l.y=0;l.scaleX=l.scaleY=1;
+    if(l.type!=='group'){determineBounds(l);l.textConfig=null;l.type='raster';}
+  }
+  state.width=w;state.height=h;state.cropRect=null;state.selection=null;resizeStage();fitZoom();record('Crop document');updateToolOptions();
+};
+const changeImageSize = (newW,newH) => {
+  const oldW=state.width,oldH=state.height,sx=newW/oldW,sy=newH/oldH;
+  for(const l of state.layers){
+    const n=makeCanvas(newW,newH),t=n.getContext('2d');
+    t.save();t.scale(sx,sy);t.translate(l.x,l.y);t.scale(l.scaleX,l.scaleY);t.drawImage(l.canvas,0,0);t.restore();
+    l.canvas=n;if(l.maskCanvas){const m=makeCanvas(newW,newH),mc=m.getContext('2d');mc.scale(sx,sy);mc.translate(l.x,l.y);mc.scale(l.scaleX,l.scaleY);mc.drawImage(l.maskCanvas,0,0);l.maskCanvas=m;}l.x=l.y=0;l.scaleX=l.scaleY=1;
+    if(l.textConfig){l.textConfig.size=Math.round(l.textConfig.size*(sx+sy)/2);l.textConfig.x*=sx;l.textConfig.y*=sy;}
+    if(l.type!=='group')determineBounds(l);
+  }
+  state.width=newW;state.height=newH;state.selection=null;state.cropRect=null;resizeStage();fitZoom();record('Resize image');
+};
+const flipOrRotate = type => {
+  const l=editLayer();if(!l)return;
+  const orig=makeCanvas(),t=orig.getContext('2d');t.save();t.translate(l.x,l.y);t.scale(l.scaleX,l.scaleY);t.drawImage(l.canvas,0,0);t.restore();
+  const c=makeCanvas(),out=c.getContext('2d');
+  if(type==='flip-h'){out.translate(state.width,0);out.scale(-1,1);}
+  else if(type==='flip-v'){out.translate(0,state.height);out.scale(1,-1);}
+  else {out.translate(state.width/2,state.height/2);out.rotate(type==='rotate-cw'?Math.PI/2:-Math.PI/2);out.translate(-state.width/2,-state.height/2);}
+  out.drawImage(orig,0,0);l.canvas=c;l.x=l.y=0;l.scaleX=l.scaleY=1;l.type='raster';l.textConfig=null;determineBounds(l);
+  record(type==='flip-h'?'Flip horizontal':type==='flip-v'?'Flip vertical':'Rotate layer');
+};
+const resetAdjustments = (update=true) => {
+  state.adjustments={brightness:0,contrast:0,saturation:0,hue:0};
+  for(const key of Object.keys(state.adjustments)){
+    const inp=$(`#adj${key[0].toUpperCase()}${key.slice(1)}`),out=$(`#${key}Value`);
+    if(inp)inp.value=0;if(out)out.textContent=key==='hue'?'0°':'0';
+  }
+  if(update)requestRender();
+};
+const applyAdjustments = () => {
+  const l=editLayer();if(!l)return;
+  const filter=effectiveFilter();if(filter==='none'){toast('Move an adjustment slider first');return;}
+  const c=makeCanvas(),t=c.getContext('2d');t.filter=filter;t.drawImage(l.canvas,0,0);t.filter='none';l.canvas=c;
+  l.type='raster';l.textConfig=null;determineBounds(l);resetAdjustments(false);record('Adjust image');
+};
+const applyPreset = name => {
+  const l=editLayer();if(!l)return;
+  const c=makeCanvas(),out=c.getContext('2d');
+  const filters={grayscale:'grayscale(100%)',sepia:'sepia(100%)',soften:'blur(2px)'};
+  if(filters[name]){out.filter=filters[name];out.drawImage(l.canvas,0,0);out.filter='none';}
+  else if(name==='invert'){
+    out.drawImage(l.canvas,0,0);const image=out.getImageData(0,0,c.width,c.height),d=image.data;
+    for(let i=0;i<d.length;i+=4){d[i]=255-d[i];d[i+1]=255-d[i+1];d[i+2]=255-d[i+2];}out.putImageData(image,0,0);
+  }else if(name==='sharpen'){
+    const src=l.canvas.getContext('2d',{willReadFrequently:true}).getImageData(0,0,c.width,c.height),dst=out.createImageData(c.width,c.height);
+    const s=src.data,d=dst.data,w=c.width,h=c.height;
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const off=(y*w+x)*4;for(let col=0;col<3;col++){
+        let value=s[off+col]*5;
+        if(x>0)value-=s[off-4+col];if(x<w-1)value-=s[off+4+col];
+        if(y>0)value-=s[off-w*4+col];if(y<h-1)value-=s[off+w*4+col];
+        const edge=(x===0)+(x===w-1)+(y===0)+(y===h-1);
+        d[off+col]=clamp(value-s[off+col]*edge,0,255);
+      }d[off+3]=s[off+3];
+    }out.putImageData(dst,0,0);
+  }
+  l.canvas=c;l.type='raster';l.textConfig=null;determineBounds(l);resetAdjustments(false);record(`Filter · ${name}`);toast(`${name[0].toUpperCase()+name.slice(1)} filter applied`);
+};
+const closeModal = () => {currentAdjustmentPreview=null;requestRender();$('#modalContent').classList.remove('newdoc-modal');modalBg.classList.add('hidden');$('#modalContent').innerHTML='';modalOpen=false;};
+const openModal = (inner,onSubmit) => {
+  modalOpen=true;modalBg.classList.remove('hidden');
+  $('#modalContent').innerHTML=inner;
+  $('#modalContent').querySelectorAll('[data-close]').forEach(x=>x.addEventListener('click',closeModal));
+  const form=$('#modalContent form');
+  if(form)form.addEventListener('submit',e=>{e.preventDefault();onSubmit?.(new FormData(form));});
+  const first=$('#modalContent input:not([type=hidden]), #modalContent textarea');if(first)setTimeout(()=>first.focus(),0);
+};
+const modalHead = (title,description='') => `<div class="modal-head"><div><h2>${title}</h2><p>${description}</p></div><button class="modal-close" data-close title="Close">${icon('close')}</button></div>`;
+const modalActions = (label='Create') => `<div class="modal-actions"><button type="button" data-close>Cancel</button><button type="submit" class="confirm">${label}</button></div>`;
+// Preset-based document setup. Only RGB 8-bit is writable by the raster/PSD engine.
+const documentPresets = {
+  Recent: [{name:'Default canvas',w:1280,h:800,ppi:72},{name:'Square post',w:1080,h:1080,ppi:72}],
+  Saved: [],
+  Photo: [{name:'4 × 6 photo',w:1200,h:1800,ppi:300},{name:'5 × 7 photo',w:1500,h:2100,ppi:300},{name:'HD wallpaper',w:1920,h:1080,ppi:72}],
+  Print: [{name:'US Letter',w:2550,h:3300,ppi:300},{name:'A4',w:2480,h:3508,ppi:300},{name:'Postcard',w:1800,h:1200,ppi:300}],
+  'Art & Illustration': [{name:'Digital illustration',w:2000,h:2000,ppi:300},{name:'Poster',w:2400,h:3000,ppi:200}],
+  Web: [{name:'Website hero',w:1920,h:1080,ppi:72},{name:'Web banner',w:1600,h:600,ppi:72},{name:'App cover',w:1200,h:630,ppi:72}],
+  Mobile: [{name:'Story / Reel',w:1080,h:1920,ppi:72},{name:'Phone wallpaper',w:1170,h:2532,ppi:72}],
+  'Film & Video': [{name:'Full HD',w:1920,h:1080,ppi:72},{name:'2K video',w:2048,h:1080,ppi:72},{name:'4K UHD',w:3840,h:2160,ppi:72}]
+};
+const newDocumentDialog = () => {
+  const tabs=Object.keys(documentPresets);
+  openModal(`<form class="new-doc-form">${modalHead('New document','Choose a preset or create your own document. All documents use 8-bit sRGB.')}
+    <div class="nd-workspace"><div class="nd-left"><div class="nd-tabs">${tabs.map(t=>`<button type="button" data-nd-tab="${escapeHTML(t)}" class="${t==='Recent'?'active':''}">${escapeHTML(t)}</button>`).join('')}</div>
+    <div class="nd-body"><div class="nd-caption" id="ndCaption">RECENT & COMMON PRESETS</div><div class="nd-presets" id="ndPresets"></div></div></div>
+    <div class="nd-right"><div class="nd-caption">PRESET DETAILS</div>
+      <label>Document name<input name="name" value="Untitled-1" maxlength="70" required></label>
+      <div class="nd-dim"><label>Width<input type="number" name="width" min="1" max="6000" step="any" value="1280" required></label><label>Height<input type="number" name="height" min="1" max="6000" step="any" value="800" required></label></div>
+      <div class="nd-dim"><label>Units<select name="units"><option value="px">Pixels</option><option value="in">Inches</option><option value="cm">Centimeters</option></select></label><label>Orientation<div class="nd-orient"><button type="button" data-orient="landscape" class="active" title="Landscape">▭</button><button type="button" data-orient="portrait" title="Portrait">▯</button></div></label></div>
+      <div class="nd-dim"><label>Resolution<input type="number" name="ppi" min="1" max="1200" value="72"></label><label>Resolution unit<select name="ppiUnit"><option value="ppi">Pixels / Inch</option><option value="ppcm">Pixels / Centimeter</option></select></label></div>
+      <div class="nd-dim"><label>Color mode<select name="colorMode"><option value="rgb">RGB Color</option></select></label><label>Bit depth<select name="bits"><option value="8">8 bit</option></select></label></div>
+      <label>Background contents<select name="background"><option value="white">White</option><option value="black">Black</option><option value="transparent">Transparent</option><option value="custom">Custom color</option></select></label><label class="nd-custom hidden">Custom background color<input name="bgColor" type="color" value="#ffffff"></label>
+      <details class="nd-extra"><summary>Advanced options</summary><p>Color profile: sRGB IEC61966-2.1</p><p>Pixel aspect ratio: Square Pixels</p><p>CMYK, 16/32-bit, and artboards are not supported in this version.</p></details>
+      <p class="nd-hint" id="ndPixelCount">1280 × 800 pixels</p><p class="nd-explain">Custom sizes are entered directly above. Pixels are exact; inches and centimeters are calculated from the chosen resolution.</p>
+      <div class="nd-actions"><button type="button" class="save-preset-button" id="ndSavePreset">Save custom preset</button>${modalActions('Create document')}</div>
+    </div></div></form>`, data=>{
+    const units=String(data.get('units')),ppiUnit=String(data.get('ppiUnit'));
+    const ppi=clamp(Number(data.get('ppi'))*(ppiUnit==='ppcm'?2.54:1),1,1200);
+    const pxFactor=units==='in'?ppi:units==='cm'?ppi/2.54:1;
+    const w=Math.round(Number(data.get('width'))*pxFactor),h=Math.round(Number(data.get('height'))*pxFactor);
+    if(!validSize(w,h))return;
+    const bg=String(data.get('background'));
+    createBaseDocument(w,h,bg==='transparent',String(data.get('name')).trim()||'Untitled-1',bg==='black'?'#000000':bg==='custom'?String(data.get('bgColor')):'#ffffff',ppi);
+    try{localStorage.setItem('pixelforge:lastPreset',JSON.stringify({name:state.name,w,h,ppi}));}catch{}
+    closeModal();toast(`Created ${w} × ${h} RGB document`);
+  });
+  const modal=$('#modalContent');modal.classList.add('newdoc-modal');
+  const form=modal.querySelector('form');
+  const fld=(name)=>form.elements.namedItem(name);
+  let activeTab='Recent', selectedName='Default canvas';
+  try{const last=JSON.parse(localStorage.getItem('pixelforge:lastPreset')||'null');if(last&&validPreset(last))documentPresets.Recent=[last,...documentPresets.Recent.filter(p=>p.name!==last.name)].slice(0,4);}catch{}
+  try{const saved=JSON.parse(localStorage.getItem('pixelforge:customPresets')||'[]');documentPresets.Saved=Array.isArray(saved)?saved.filter(validPreset).slice(0,18):[];}catch{documentPresets.Saved=[];}
+  function validPreset(p){return Number.isFinite(p.w)&&Number.isFinite(p.h)&&p.w>=1&&p.h>=1&&p.w*p.h<=16000000;}
+  const toPixels=()=>{const ppi=Number(fld('ppi').value)*(fld('ppiUnit').value==='ppcm'?2.54:1);return Number(fld('width').value)*(fld('units').value==='in'?ppi:fld('units').value==='cm'?ppi/2.54:1);};
+  const showCount=()=>{
+    const ppi=Number(fld('ppi').value)*(fld('ppiUnit').value==='ppcm'?2.54:1);const mul=fld('units').value==='in'?ppi:fld('units').value==='cm'?ppi/2.54:1;
+    const w=Math.round(Number(fld('width').value)*mul),h=Math.round(Number(fld('height').value)*mul);
+    $('#ndPixelCount').textContent=`${w.toLocaleString()} × ${h.toLocaleString()} pixels · ${((w*h)/1e6).toFixed(2)} MP`;
+    const portrait=h>w;modal.querySelectorAll('[data-orient]').forEach(b=>b.classList.toggle('active',b.dataset.orient===(portrait?'portrait':'landscape')));
+  };
+  const renderPresets=()=>{
+    modal.querySelectorAll('[data-nd-tab]').forEach(b=>b.classList.toggle('active',b.dataset.ndTab===activeTab));
+    $('#ndCaption').textContent=activeTab.toUpperCase()+' PRESETS';
+    $('#ndPresets').innerHTML=documentPresets[activeTab].map((p,i)=>`<button type="button" class="nd-preset ${selectedName===p.name?'active':''}" data-nd-preset="${i}"><span class="nd-icon">${p.h>p.w?'▯':p.h===p.w?'□':'▭'}</span><strong>${escapeHTML(p.name)}</strong><small>${p.w} × ${p.h} px @ ${p.ppi} ppi</small></button>`).join('');
+  };
+  const applyPreset=p=>{
+    selectedName=p.name;fld('width').value=p.w;fld('height').value=p.h;fld('ppi').value=p.ppi;fld('ppiUnit').value='ppi';fld('units').value='px';showCount();renderPresets();
+  };
+  modal.querySelector('.nd-tabs').addEventListener('click',e=>{const b=e.target.closest('[data-nd-tab]');if(!b)return;activeTab=b.dataset.ndTab;selectedName=null;renderPresets();});
+  $('#ndPresets').addEventListener('click',e=>{const b=e.target.closest('[data-nd-preset]');if(b)applyPreset(documentPresets[activeTab][Number(b.dataset.ndPreset)]);});
+  $('#ndSavePreset').addEventListener('click',()=>{
+    const ppi=Number(fld('ppi').value)*(fld('ppiUnit').value==='ppcm'?2.54:1),units=fld('units').value,ratio=units==='in'?ppi:units==='cm'?ppi/2.54:1;
+    const preset={name:(prompt('Name this document preset',fld('name').value||'Custom canvas')||'').trim().slice(0,55),w:Math.round(Number(fld('width').value)*ratio),h:Math.round(Number(fld('height').value)*ratio),ppi:Math.round(ppi)};
+    if(!preset.name)return;if(!validPreset(preset)||preset.w>6000||preset.h>6000){toast('The preset dimensions are outside document limits');return;}
+    documentPresets.Saved=[preset,...documentPresets.Saved.filter(p=>p.name!==preset.name)].slice(0,18);
+    try{localStorage.setItem('pixelforge:customPresets',JSON.stringify(documentPresets.Saved));}catch{toast('The browser could not store this preset');return;}
+    activeTab='Saved';selectedName=preset.name;renderPresets();toast('Custom document preset saved');
+  });
+  modal.querySelectorAll('[data-orient]').forEach(b=>b.addEventListener('click',()=>{const w=fld('width').value;fld('width').value=fld('height').value;fld('height').value=w;showCount();}));
+  const rememberUnits={unit:'px',ppiUnit:'ppi'};
+  fld('units').addEventListener('change',()=>{const ppi=Number(fld('ppi').value)*(fld('ppiUnit').value==='ppcm'?2.54:1);const conv=u=>u==='in'?ppi:u==='cm'?ppi/2.54:1;
+    const old=conv(rememberUnits.unit),now=conv(fld('units').value);fld('width').value=+(Number(fld('width').value)*old/now).toFixed(3);fld('height').value=+(Number(fld('height').value)*old/now).toFixed(3);rememberUnits.unit=fld('units').value;showCount();});
+  fld('ppiUnit').addEventListener('change',()=>{fld('ppi').value=+(Number(fld('ppi').value)*(rememberUnits.ppiUnit==='ppi'?1:2.54)/(fld('ppiUnit').value==='ppi'?1:2.54)).toFixed(2);rememberUnits.ppiUnit=fld('ppiUnit').value;showCount();});
+  fld('background').addEventListener('change',()=>modal.querySelector('.nd-custom').classList.toggle('hidden',fld('background').value!=='custom'));
+  ['width','height','ppi'].forEach(n=>fld(n).addEventListener('input',()=>{selectedName=null;showCount();renderPresets();}));
+  renderPresets();showCount();
+};
+const validSize = (w,h) => {
+  if(!Number.isInteger(w)||!Number.isInteger(h)||w<1||h<1||w>6000||h>6000||w*h>16000000){toast('Use 1 to 6000 pixels per side, up to 16 megapixels');return false;}
+  return true;
+};
+const resizeDialog = () => {
+  openModal(`<form>${modalHead('Image size','Resize every layer and scale the entire composition.')}
+    <div class="field-row"><label>Width (px)<input type="number" name="width" min="32" max="5000" value="${state.width}" required></label><label>Height (px)<input type="number" name="height" min="32" max="5000" value="${state.height}" required></label></div>
+    <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="ratio" checked style="width:auto"> Keep aspect ratio</label>
+    ${modalActions('Resize image')}</form>`,data=>{
+      const w=Number(data.get('width')),h=Number(data.get('height'));if(!validSize(w,h))return;
+      changeImageSize(w,h);closeModal();toast(`Image resized to ${w} × ${h}`);
+    });
+  let adjusting=false;const width=$('#modalContent [name=width]'),height=$('#modalContent [name=height]'),ratio=$('#modalContent [name=ratio]');
+  width.addEventListener('input',()=>{if(adjusting||!ratio.checked)return;adjusting=true;height.value=Math.round(Number(width.value)*state.height/state.width);adjusting=false;});
+  height.addEventListener('input',()=>{if(adjusting||!ratio.checked)return;adjusting=true;width.value=Math.round(Number(height.value)*state.width/state.height);adjusting=false;});
+};
+const renderTextContent = (layer,config) => {
+  const c=layer.canvas.getContext('2d');c.clearRect(0,0,state.width,state.height);
+  c.save();c.textBaseline='top';c.font=`${config.bold?'700':'400'} ${config.size}px ${config.font}`;
+  c.fillStyle=config.color;c.textAlign=config.align;
+  const lines=String(config.text).split('\n'),lineH=config.size*1.18;
+  lines.forEach((line,i)=>c.fillText(line||' ',config.x,config.y+i*lineH,state.width*.95));
+  c.restore();layer.textConfig={...config};layer.type='text';determineBounds(layer);
+};
+const textDialog = (point=null,layer=null) => {
+  const existing=layer?.textConfig;
+  const initial=existing||{text:'Your text here',size:78,font:'Arial, sans-serif',bold:true,align:'left',x:point?.x??state.width*.22,y:point?.y??state.height*.4,color:state.color};
+  openModal(`<form>${modalHead(existing?'Edit text':'Add text','Text stays editable until you paint or apply a filter to its layer.')}
+    <label>Text<textarea name="text" rows="4" required>${escapeHTML(initial.text)}</textarea></label>
+    <div class="field-row"><label>Font<select name="font"><option value="Arial, sans-serif">Arial</option><option value="Georgia, serif">Georgia</option><option value="Impact, sans-serif">Impact</option><option value="'Trebuchet MS', sans-serif">Trebuchet</option><option value="'Courier New', monospace">Monospace</option></select></label><label>Font size (px)<input type="number" min="8" max="600" name="size" value="${initial.size}" required></label></div>
+    <div class="field-row"><label>Alignment<select name="align"><option>left</option><option>center</option><option>right</option></select></label><label>Text color<input type="color" name="color" value="${initial.color}"></label></div>
+    <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" name="bold" style="width:auto" ${initial.bold?'checked':''}> Bold text</label>
+    ${modalActions(existing?'Update text':'Add text')}</form>`,data=>{
+      const config={text:String(data.get('text')).slice(0,1500),font:String(data.get('font')),size:clamp(Number(data.get('size')),8,600),align:String(data.get('align')),color:String(data.get('color')),bold:data.has('bold'),x:initial.x,y:initial.y};
+      if(!config.text.trim()){toast('Enter text to add');return;}
+      let target=layer;
+      if(!target)target=addLayer(config.text.split('\n')[0].slice(0,28)||'Text',{},false);
+      if(target.locked){toast('Unlock the text layer first');return;}
+      renderTextContent(target,config);record(existing?'Edit text':'Add text');closeModal();setTool('move');
+    });
+  $('#modalContent [name=font]').value=initial.font;
+  $('#modalContent [name=align]').value=initial.align;
+};
+const renameLayerDialog = (layer) => {
+  if(!layer)return;
+  openModal(`<form>${modalHead('Rename layer','Give this layer a descriptive name.')}
+  <label>Layer name<input name="name" maxlength="80" value="${escapeHTML(layer.name)}" required></label>${modalActions('Rename')}</form>`,data=>{
+    layer.name=String(data.get('name')).trim()||layer.name;record('Rename layer');closeModal();
+  });
+};
+const exportDialog = () => {
+  openModal(`<form>${modalHead('Export image','Download a finished image. Your layers remain unchanged.')}
+    <label>File format<select name="format"><option value="png">PNG · supports transparency</option><option value="jpeg">JPEG · smaller photos</option><option value="webp">WebP · optimized for web</option><option value="psd">Photoshop PSD · editable layers</option></select></label>
+    <div class="field-row"><label>Scale<select name="scale"><option value="1">1× · original resolution</option><option value="2">2× · double resolution</option></select></label><label>Quality (JPEG / WebP)<input type="number" min="10" max="100" name="quality" value="92"></label></div>
+    <p>Dimensions: ${state.width} × ${state.height} px at original scale. PSD exports raster layers (text remains visible but is not Photoshop editable text), and ignores the scale and quality controls.</p>${modalActions('Download file')}</form>`,data=>{
+      const type=String(data.get('format')),scale=Number(data.get('scale')),quality=clamp(Number(data.get('quality'))/100,.1,1);
+      if(type==='psd')exportPSD();else exportImage(type,scale,quality);closeModal();
+    });
+};
+const triggerDownload = (blob,filename) => {
+  const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=filename;
+  document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);
+};
+const safeName = () => state.name.replace(/[^a-z0-9-_]+/gi,'-').replace(/^-+|-+$/g,'').toLowerCase()||'pixelforge';
+const exportImage = (type='png',scale=1,quality=.92) => {
+  if(state.width*scale>8192||state.height*scale>8192){toast('Export size is too large. Select 1×.');return;}
+  const out=makeCanvas(state.width*scale,state.height*scale),t=out.getContext('2d');
+  t.scale(scale,scale);drawLayers(t,{showPreview:false,background:type==='jpeg'?'#ffffff':null});
+  const mime=type==='jpeg'?'image/jpeg':type==='webp'?'image/webp':'image/png';
+  out.toBlob(blob=>{if(!blob){toast('Could not export this image');return;}triggerDownload(blob,`${safeName()}.${type==='jpeg'?'jpg':type}`);toast(`${type.toUpperCase()} exported`);},mime,quality);
+};
+// PSD files preserve per-layer pixels, order, visibility, opacity and supported blend modes.
+// Photoshop-specific vector, text, masks and smart-object metadata are not preserved.
+const psdExportLayers = () => {
+  const flat=[];
+  function add(parentId=null){let base=null;for(const l of childrenOf(parentId)){
+    let cur;
+    if(l.type==='group'){
+      const merged=makeCanvas();paintChildren(merged.getContext('2d'),l.id,false);
+      cur={...l,type:'raster',canvas:merged,x:0,y:0,scaleX:1,scaleY:1,name:l.name+' (merged folder)',maskCanvas:null};
+    }else cur={...l,canvas:layerSourceCanvas(l),maskCanvas:null};
+    if(l.clipToBelow&&!base){cur={...cur,canvas:makeCanvas(),x:0,y:0,scaleX:1,scaleY:1};}
+    else if(l.clipToBelow&&base){
+      const clipped=makeCanvas(),t=clipped.getContext('2d');
+      t.translate(cur.x,cur.y);t.scale(cur.scaleX,cur.scaleY);t.drawImage(cur.canvas,0,0);t.setTransform(1,0,0,1,0,0);
+      t.globalCompositeOperation='destination-in';t.drawImage(base,0,0);
+      cur={...cur,canvas:clipped,x:0,y:0,scaleX:1,scaleY:1,name:l.name+' (clipped)',clipToBelow:false};
+    }else{
+      base=makeCanvas();const b=base.getContext('2d');b.globalAlpha=cur.opacity;b.translate(cur.x,cur.y);b.scale(cur.scaleX,cur.scaleY);b.drawImage(cur.canvas,0,0);
+    }
+    flat.push(cur);
+  }}add();return flat;
+};
+const exportPSD = async () => {
+  try{
+    toast('Preparing layered PSD…');
+    await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,0)));
+    const bytes=PixelForgePSD.write({width:state.width,height:state.height,layers:psdExportLayers()});
+    triggerDownload(new Blob([bytes],{type:'image/vnd.adobe.photoshop'}),`${safeName()}.psd`);
+    toast(state.layers.some(l=>l.type==='group'||l.clipToBelow||l.maskCanvas)?'PSD saved. Folders, clipping and masks were rasterized; use .pforge to preserve them.':'Layered Photoshop PSD exported');
+  }catch(err){console.error('PSD export error',err);toast(`PSD export failed: ${err.message}`);}
+};
+const openPSDFile = async file => {
+  try{
+    toast('Reading PSD layers…');
+    const documentData=await PixelForgePSD.read(await file.arrayBuffer());
+    if(documentData.layers.length>40)throw new Error('This PSD contains more than 40 raster layers');
+    const loaded=[];
+    // Photoshop stores layer records top to bottom; PixelForge uses bottom to top.
+    for(const info of [...documentData.layers].reverse()){
+      const layer=makeLayer(String(info.name||'PSD layer').slice(0,90));
+      layer.canvas=makeCanvas(documentData.width,documentData.height);
+      layer.canvas.getContext('2d').drawImage(info.canvas,info.left,info.top);
+      layer.opacity=info.opacity;layer.visible=info.visible;
+      layer.blend=info.blend;layer.type='raster';
+      determineBounds(layer);loaded.push(layer);
+    }
+    if(!loaded.length)throw new Error('No renderable raster layers were found in this PSD');
+    if(documentData.appearanceCanvas){
+      // Prevent double-rendering semi-transparent regions behind the composite.
+      // The original Photoshop raster layers are retained inside a hidden group;
+      // enabling it and hiding the reference makes them independently editable.
+      const originals=makeLayer('Imported Photoshop raster layers · show to edit',{type:'group',visible:false});
+      for(const layer of loaded)layer.parentId=originals.id;
+      loaded.unshift(originals);
+      const preview=makeLayer('Photoshop appearance · merged reference');
+      preview.canvas=makeCanvas(documentData.width,documentData.height);
+      preview.canvas.getContext('2d').drawImage(documentData.appearanceCanvas,0,0);
+      preview.locked=true;determineBounds(preview);
+      loaded.push(preview);
+    }
+    state.width=documentData.width;state.height=documentData.height;state.resolution=72;
+    state.name=file.name.replace(/\.psd$/i,'').slice(0,80)||'Imported PSD';
+    state.layers=loaded;state.activeId=loaded[loaded.length-1].id;
+    state.selection=null;state.cropRect=null;history=[];historyIndex=-1;
+    resetAdjustments(false);resizeStage();fitZoom();record('Open PSD');setDirty(false);
+    toast(`Opened ${file.name} with ${loaded.length} layers`);
+    if(documentData.warnings.length)toast(documentData.warnings.join(' '));
+    setTool('move');
+  }catch(err){console.error('PSD import error',err);toast(`Could not open PSD: ${err.message}`);}
+};
+const openAnyFile = async file => {
+  if(!file)return;
+  if(/\.psd$/i.test(file.name))return openPSDFile(file);
+  if(/\.(pforge|json)$/i.test(file.name))return openProjectFile(file);
+  return openRasterDocument(file);
+};
+const saveProject = () => {
+  const data={app:'PixelForge Studio',version:2,width:state.width,height:state.height,name:state.name,resolution:state.resolution,activeId:state.activeId,
+    layers:state.layers.map(l=>({id:l.id,name:l.name,visible:l.visible,opacity:l.opacity,blend:l.blend,locked:l.locked,
+      x:l.x,y:l.y,scaleX:l.scaleX,scaleY:l.scaleY,type:l.type,textConfig:l.textConfig,
+      parentId:l.parentId,expanded:l.expanded,clipToBelow:l.clipToBelow,mask:l.maskCanvas?.toDataURL('image/png')||null,pixels:l.canvas.toDataURL('image/png')}))};
+  triggerDownload(new Blob([JSON.stringify(data)],{type:'application/json'}),`${safeName()}.pforge`);
+  setDirty(false);toast('Editable project saved');
+};
+const loadCanvasImage = src => new Promise((resolve,reject)=>{
+  const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('Image could not be loaded'));img.src=src;
+});
+const openProjectFile = async file => {
+  try{
+    const data=JSON.parse(await file.text());
+    if(data.app!=='PixelForge Studio'||!validSize(data.width,data.height)||!Array.isArray(data.layers)||data.layers.length<1||data.layers.length>40)throw new Error('Invalid PixelForge project');
+    const loaded=[];
+    for(const item of data.layers){
+      const img=await loadCanvasImage(item.pixels);const layer=makeLayer(String(item.name).slice(0,90));
+      layer.canvas=makeCanvas(data.width,data.height);layer.canvas.getContext('2d').drawImage(img,0,0);
+      layer.visible=item.visible!==false;layer.opacity=clamp(Number(item.opacity)||0,0,1);layer.blend=['source-over','multiply','screen','overlay','darken','lighten','difference','soft-light','hard-light'].includes(item.blend)?item.blend:'source-over';
+      layer.locked=!!item.locked;layer.x=Number(item.x)||0;layer.y=Number(item.y)||0;layer.scaleX=Number(item.scaleX)||1;layer.scaleY=Number(item.scaleY)||1;
+      layer.type=['raster','group','text'].includes(item.type)?item.type:'raster';layer.textConfig=item.textConfig||null;
+      layer.expanded=item.expanded!==false;layer.clipToBelow=!!item.clipToBelow;layer.originalId=item.id;layer.originalParentId=item.parentId??null;
+      if(item.mask){layer.maskCanvas=makeCanvas(data.width,data.height);layer.maskCanvas.getContext('2d').drawImage(await loadCanvasImage(item.mask),0,0);}
+      if(layer.type!=='group')determineBounds(layer);loaded.push(layer);
+    }
+    state.width=data.width;state.height=data.height;state.resolution=Number(data.resolution)||72;state.name=String(data.name||file.name.replace(/\.pforge$/,'')).slice(0,80);
+    const ids=new Map(loaded.map(l=>[l.originalId,l.id]));
+    for(const l of loaded){l.parentId=ids.get(l.originalParentId)??null;delete l.originalId;delete l.originalParentId;}
+    state.layers=loaded;normalizeHierarchy();state.activeId=ids.get(data.activeId)??loaded.at(-1).id;
+    state.selection=null;state.cropRect=null;history=[];historyIndex=-1;resetAdjustments(false);resizeStage();fitZoom();record('Open project');setDirty(false);toast('Project opened');
+  }catch(err){console.error(err);toast('Could not open this project file');}
+};
+// File > Open creates a new document at the image's original pixel dimensions.
+// File > Place image as layer is intentionally separate and never replaces it.
+const openRasterDocument = async file => {
+  if(!file?.type?.startsWith('image/')){toast('Choose an image, PSD, or PixelForge project');return;}
+  let url=null;
+  try{
+    url=URL.createObjectURL(file);
+    const img=await loadCanvasImage(url);
+    const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+    if(!validSize(w,h))return;
+    if(dirty&&!confirm('Discard unsaved changes and open this image as a new document?'))return;
+    const layer=makeLayer(file.name.replace(/\.[^.]*$/,'').slice(0,75)||'Opened image');
+    layer.canvas=makeCanvas(w,h);
+    layer.canvas.getContext('2d').drawImage(img,0,0);
+    state.width=w;state.height=h;state.resolution=72;
+    state.name=file.name.replace(/\.[^.]*$/,'').slice(0,80)||'Opened image';
+    determineBounds(layer);
+    state.layers=[layer];state.activeId=layer.id;
+    state.selection=null;state.cropRect=null;state.panX=state.panY=0;
+    history=[];historyIndex=-1;resetAdjustments(false);
+    resizeStage();fitZoom();record('Open original image');setDirty(false);
+    setTool('move');toast(`Opened ${file.name} at original size (${w} × ${h})`);
+  }catch(err){console.error('Image open failed',err);toast(`Could not open image: ${err.message}`);}
+  finally{if(url)URL.revokeObjectURL(url);}
+};
+const importImage = async file => {
+  if(!file?.type?.startsWith('image/')){toast('Choose an image file');return;}
+  try{
+    const url=URL.createObjectURL(file),img=await loadCanvasImage(url);URL.revokeObjectURL(url);
+    const layer=addLayer(file.name.replace(/\.[^.]*$/,'').slice(0,70),{},false);
+    const t=layer.canvas.getContext('2d');const scale=Math.min(1,(state.width*.9)/img.width,(state.height*.9)/img.height);
+    const dw=img.width*scale,dh=img.height*scale;
+    t.drawImage(img,(state.width-dw)/2,(state.height-dh)/2,dw,dh);
+    determineBounds(layer);record('Import image');setTool('move');toast(`${file.name} added as a layer`);
+  }catch(err){console.error(err);toast('Could not import this image');}
+};
+const helpDialog = () => {
+  const shortcuts=[['V','Move layer'],['M','Rectangle selection'],['B','Brush'],['E','Eraser'],['G','Paint bucket'],['T','Text'],['U','Rectangle'],['C','Crop'],['H','Hand'],['Z','Zoom'],['Ctrl + Z','Undo'],['Ctrl + Shift + Z','Redo'],['Ctrl + D','Deselect'],['Ctrl + C / V','Copy / paste'],['Ctrl + S','Save editable PixelForge project'],['Ctrl + Shift + S','Export layered Photoshop PSD'],['Space + drag','Pan canvas'],['Ctrl + scroll','Zoom canvas'],['Delete','Delete selected layer / folder'],['Shift + Delete','Clear selected pixels'],['Ctrl + G','Group selected layer'],['Ctrl + Alt + G','Clipping mask'],['Enter','Apply crop'],['Arrows','Nudge selected layer']];
+  openModal(`<div>${modalHead('Keyboard shortcuts','Speed up your editing workflow.')}
+    <div class="help-grid">${shortcuts.map(([k,v])=>`<div><span>${v}</span><kbd>${k}</kbd></div>`).join('')}</div>
+    <div class="modal-actions"><button class="confirm" data-close>Got it</button></div></div>`);
+};
+const createDemoProject = () => {
+  createBaseDocument(1280,800,true,'Aurora composition');state.layers=[];
+  const background=makeLayer('Midnight gradient');const b=background.canvas.getContext('2d');
+  const gr=b.createLinearGradient(0,0,1200,800);gr.addColorStop(0,'#111332');gr.addColorStop(.48,'#28205d');gr.addColorStop(1,'#100f29');b.fillStyle=gr;b.fillRect(0,0,1280,800);
+  for(const [x,y,r,col] of [[270,380,380,'#955cf766'],[920,150,310,'#1b8ade45'],[1070,700,340,'#a34edc66']]){
+    const radial=b.createRadialGradient(x,y,0,x,y,r);radial.addColorStop(0,col);radial.addColorStop(1,'#00000000');b.fillStyle=radial;b.fillRect(x-r,y-r,r*2,r*2);
+  }
+  background.bounds={x:0,y:0,w:1280,h:800};background.locked=true;state.layers.push(background);
+  const accent=makeLayer('Aurora orbs'),a=accent.canvas.getContext('2d');
+  a.save();a.translate(310,400);a.rotate(-.27);
+  let sphere=a.createRadialGradient(-55,-100,5,0,0,270);sphere.addColorStop(0,'#f9afff');sphere.addColorStop(.22,'#c47bff');sphere.addColorStop(.55,'#7d46dd');sphere.addColorStop(.86,'#34256e');sphere.addColorStop(1,'#171438');
+  a.fillStyle=sphere;a.beginPath();a.ellipse(0,0,244,244,0,0,Math.PI*2);a.fill();
+  a.strokeStyle='#bcaaff55';a.lineWidth=2;for(let i=0;i<7;i++){a.beginPath();a.ellipse(0,0,270+i*19,100+i*8,.35,0,Math.PI*2);a.stroke();}a.restore();
+  for(let i=0;i<45;i++){const x=(i*167+59)%1200+20,y=(i*131+37)%720+34;a.beginPath();a.arc(x,y,i%9===0?2.2:1.0,0,Math.PI*2);a.fillStyle=i%4===0?'#d9b8ffb0':'#9e9cdb85';a.fill();}
+  determineBounds(accent);state.layers.push(accent);
+  const overline=makeLayer('Top caption');renderTextContent(overline,{text:'A DIGITAL PLAYGROUND',x:675,y:183,size:21,bold:true,font:'Arial, sans-serif',align:'left',color:'#c7bbff'});state.layers.push(overline);
+  const headline=makeLayer('Create without limits');renderTextContent(headline,{text:'CREATE\nWITHOUT\nLIMITS.',x:668,y:247,size:88,bold:true,font:'Impact, sans-serif',align:'left',color:'#ffffff'});state.layers.push(headline);
+  const footer=makeLayer('Poster subtitle');renderTextContent(footer,{text:'Every great idea starts with a canvas.',x:678,y:598,size:22,bold:false,font:'Arial, sans-serif',align:'left',color:'#d0cbe7'});state.layers.push(footer);
+  state.activeId=headline.id;history=[];historyIndex=-1;record('Open sample design');setDirty(false);resizeStage();fitZoom();renderAll();
+};
+// Layer adjustments. Operations are rasterized only when Apply is selected.
+const adjustmentDefinitions = {
+  brightness: {title:'Brightness / Contrast', controls:[['brightness','Brightness',-100,100,0],['contrast','Contrast',-100,100,0]]},
+  levels: {title:'Levels', controls:[['black','Input black',0,240,0],['gamma','Midtone gamma',20,300,100],['white','Input white',15,255,255]]},
+  curves: {title:'Curves · Midtones', controls:[['shadows','Shadows',-100,100,0],['midtones','Midtones',-100,100,0],['highlights','Highlights',-100,100,0]]},
+  exposure: {title:'Exposure', controls:[['exposure','Exposure (stops × 10)',-40,40,0],['offset','Offset',-100,100,0],['gamma','Gamma',20,300,100]]},
+  vibrance: {title:'Vibrance', controls:[['vibrance','Vibrance',-100,100,0],['saturation','Saturation',-100,100,0]]},
+  hue: {title:'Hue / Saturation', controls:[['hue','Hue',-180,180,0],['saturation','Saturation',-100,100,0],['lightness','Lightness',-100,100,0]]},
+  balance: {title:'Color Balance',controls:[['cyan','Cyan ↔ Red',-100,100,0],['magenta','Magenta ↔ Green',-100,100,0],['yellow','Yellow ↔ Blue',-100,100,0]]},
+  blackwhite: {title:'Black & White',controls:[['red','Reds',0,200,100],['green','Greens',0,200,100],['blue','Blues',0,200,100]]},
+  photofilter: {title:'Photo Filter',controls:[['temperature','Cooling ↔ Warming',-100,100,30],['density','Density',0,100,25]]},
+  mixer: {title:'Channel Mixer',controls:[['red','Red contribution',-100,200,100],['green','Green contribution',-100,200,0],['blue','Blue contribution',-100,200,0]],description:'Mix the source RGB channels into the red output channel. Green and blue outputs remain unchanged.'},
+  posterize: {title:'Posterize',controls:[['levels','Levels',2,32,6]]},
+  threshold: {title:'Threshold',controls:[['threshold','Threshold',0,255,128]]},
+  gradientmap: {title:'Gradient Map',controls:[['dark','Shadow color',0,0,0,'color','#182755'],['light','Highlight color',0,0,0,'color','#f6bb81']]},
+  shadows: {title:'Shadows / Highlights',controls:[['shadows','Lift shadows',-100,100,35],['highlights','Recover highlights',-100,100,25]]},
+  selective: {title:'Selective Color · Basic',controls:[['reds','Reds',-100,100,0],['greens','Greens',-100,100,0],['blues','Blues',-100,100,0]]},
+  lookup: {title:'Color Lookup',controls:[['intensity','Intensity',0,100,70]],select:['warm','cool','teal','cinematic','vintage']},
+};
+let currentAdjustmentPreview=null;
+const adjustRasterPixels = (base, key, v) => {
+  const output=new ImageData(new Uint8ClampedArray(base.data),base.width,base.height),p=output.data;
+  const R=(n)=>clamp(n,0,255), mix=(a,b,t)=>a+(b-a)*t;
+  const colorHex = hex => colorToRGB(hex||'#000000');
+  const shade=key==='gradientmap'?colorHex(v.dark):null,light=key==='gradientmap'?colorHex(v.light):null;
+  for(let i=0;i<p.length;i+=4){
+    const r=p[i],g=p[i+1],b=p[i+2],max=Math.max(r,g,b),min=Math.min(r,g,b),sat=(max-min)/255;
+    let x=r,y=g,z=b;
+    if(key==='brightness'){
+      const c=Number(v.contrast)*2.55,fac=(259*(c+255))/(255*(259-c)),d=Number(v.brightness)*2.55;
+      x=fac*(r-128)+128+d;y=fac*(g-128)+128+d;z=fac*(b-128)+128+d;
+    }else if(key==='levels'){
+      const black=Number(v.black),white=Math.max(black+1,Number(v.white)),gamma=Number(v.gamma)/100;
+      const calc=q=>Math.pow(clamp((q-black)/(white-black),0,1),1/gamma)*255;
+      x=calc(r);y=calc(g);z=calc(b);
+    }else if(key==='curves'){
+      const f=q=>{const t=q/255,s=Number(v.shadows)/100,m=Number(v.midtones)/100,h=Number(v.highlights)/100;
+        return 255*clamp(t+s*(1-t)*(1-t)*t*2 + m*4*t*(1-t)*(.5-t)*(-1) + h*t*t*(1-t)*2,0,1);};
+      x=f(r);y=f(g);z=f(b);
+    }else if(key==='exposure'){
+      const factor=Math.pow(2,Number(v.exposure)/10),off=Number(v.offset)*1.3,gamma=Number(v.gamma)/100;
+      const f=q=>255*Math.pow(clamp((q*factor+off)/255,0,1),1/gamma);
+      x=f(r);y=f(g);z=f(b);
+    }else if(key==='vibrance'||key==='hue'){
+      if(key==='hue'){
+        // Hue rotation matrix for linearized RGB approximation.
+        const a=Number(v.hue)*Math.PI/180,co=Math.cos(a),si=Math.sin(a);
+        x=(.213+co*.787-si*.213)*r+(.715-co*.715-si*.715)*g+(.072-co*.072+si*.928)*b;
+        y=(.213-co*.213+si*.143)*r+(.715+co*.285+si*.140)*g+(.072-co*.072-si*.283)*b;
+        z=(.213-co*.213-si*.787)*r+(.715-co*.715+si*.715)*g+(.072+co*.928+si*.072)*b;
+      }
+      const grey=.2126*x+.7152*y+.0722*z;
+      const factor=1+Number(v.saturation)/100+(key==='vibrance'?Number(v.vibrance)/100*(1-sat):0);
+      x=grey+(x-grey)*factor;y=grey+(y-grey)*factor;z=grey+(z-grey)*factor;
+      if(key==='hue'){const l=Number(v.lightness)*2.55;x+=l;y+=l;z+=l;}
+    }else if(key==='balance'){
+      x=r+Number(v.cyan)*1.28;y=g+Number(v.magenta)*1.28;z=b+Number(v.yellow)*1.28;
+    }else if(key==='blackwhite'){
+      const sum=(r*Number(v.red)*.299+g*Number(v.green)*.587+b*Number(v.blue)*.114)/100;x=y=z=sum;
+    }else if(key==='photofilter'){
+      const warm=Number(v.temperature)/100,den=Number(v.density)/100;
+      const c=warm>=0?[255,167,81]:[74,153,255],t=Math.abs(warm)*den;
+      x=mix(r,c[0],t);y=mix(g,c[1],t);z=mix(b,c[2],t);
+    }else if(key==='mixer'){
+      x=r*Number(v.red)/100+g*Number(v.green)/100+b*Number(v.blue)/100;
+    }else if(key==='posterize'){
+      const levels=Number(v.levels),f=q=>Math.round((q/255)*(levels-1))*255/(levels-1);x=f(r);y=f(g);z=f(b);
+    }else if(key==='threshold'){
+      const lum=.2126*r+.7152*g+.0722*b;x=y=z=lum>=Number(v.threshold)?255:0;
+    }else if(key==='gradientmap'){
+      const t=(.2126*r+.7152*g+.0722*b)/255;x=mix(shade[0],light[0],t);y=mix(shade[1],light[1],t);z=mix(shade[2],light[2],t);
+    }else if(key==='shadows'){
+      const l=(.2126*r+.7152*g+.0722*b)/255;
+      const delta=Number(v.shadows)*2.3*Math.pow(1-l,2)-Number(v.highlights)*2.3*Math.pow(l,2);
+      x=r+delta;y=g+delta;z=b+delta;
+    }else if(key==='selective'){
+      x=r+Number(v.reds)*(r/255)*.7;y=g+Number(v.greens)*(g/255)*.7;z=b+Number(v.blues)*(b/255)*.7;
+    }else if(key==='lookup'){
+      const t=Number(v.intensity)/100;
+      const targets={warm:[1.09,1.02,.88],cool:[.89,1.03,1.13],teal:[.88,1.12,1.17],cinematic:[1.12,.99,.89],vintage:[1.05,.96,.82]},f=targets[v.preset]||targets.warm;
+      x=mix(r,r*f[0],t);y=mix(g,g*f[1],t);z=mix(b,b*f[2],t);
+    }
+    p[i]=R(x);p[i+1]=R(y);p[i+2]=R(z);
+  }
+  return output;
+};
+const adjustmentDialog = key => {
+  const def=adjustmentDefinitions[key];if(!def)return;
+  const l=editLayer();if(!l)return;
+  resetAdjustments(false);
+  const targetId=l.id,source=copyCanvas(l.canvas),base=source.getContext('2d',{willReadFrequently:true}).getImageData(0,0,source.width,source.height);
+  const defaults=Object.fromEntries(def.controls.map(c=>[c[0],c[5]==='color'?c[6]:c[4]]));
+  let values={...defaults,preset:def.select?.[0]||'warm'},scheduled=false;
+  const controls=def.controls.map(c=>{const [id,label,min,max,defaultValue,type='range',value]=c;
+    return `<div class="adv-control"><label for="ctrl-${id}">${escapeHTML(label)}</label><div class="adv-value-line"><input id="ctrl-${id}" data-adjust="${id}" type="${type}" ${type==='range'?`min="${min}" max="${max}" step="1" value="${defaultValue}"`:`value="${value}"`}>${type==='range'?`<input aria-label="${escapeHTML(label)} value" data-adjust-number="${id}" type="number" min="${min}" max="${max}" value="${defaultValue}" step="1">`:`<output id="output-${id}">${value}</output>`}</div></div>`;
+  }).join('');
+  const choice=def.select?`<label>Lookup preset<select id="adjustPreset">${def.select.map(p=>`<option value="${p}">${p[0].toUpperCase()+p.slice(1)}</option>`).join('')}</select></label>`:'';
+  openModal(`<form class="adjust-form">${modalHead(def.title,'Live preview on the selected raster layer. Apply to commit, or Cancel to discard.')}
+    ${def.description?`<p class="adv-description">${escapeHTML(def.description)}</p>`:''}
+    ${choice}${controls}<label class="adv-preview-toggle"><input type="checkbox" id="adjustPreviewOn" checked> Preview changes on canvas</label><div class="adv-preview-note">${icon('eye')} Preview applies only to the active layer. The original is retained until you click Apply.</div>
+    <div class="modal-actions"><button type="button" id="resetAdjustment">Reset</button><button type="button" data-close>Cancel</button><button type="submit" class="confirm">Apply adjustment</button></div></form>`,()=>{
+      if(getActive()?.id!==targetId)return;
+      const finalImage=adjustRasterPixels(base,key,values);
+      const committed=makeCanvas(source.width,source.height);committed.getContext('2d').putImageData(finalImage,0,0);
+      l.canvas=committed;
+      currentAdjustmentPreview=null;l.type='raster';l.textConfig=null;determineBounds(l);
+      closeModal();record(def.title);
+    });
+  const rerender=()=>{
+    scheduled=false;
+    const result=adjustRasterPixels(base,key,values);
+    const preview=makeCanvas(source.width,source.height);preview.getContext('2d').putImageData(result,0,0);
+    currentAdjustmentPreview=previewEnabled()?preview:null;requestRender();
+  };
+  const schedule=()=>{if(!scheduled){scheduled=true;requestAnimationFrame(rerender);}};
+  const previewEnabled=()=>$('#adjustPreviewOn')?.checked!==false;
+  $$('#modalContent [data-adjust]').forEach(input=>input.addEventListener('input',()=>{
+    const id=input.dataset.adjust;
+    values[id]=input.type==='color'?input.value:Number(input.value);
+    const companion=$(`#modalContent [data-adjust-number="${id}"]`);
+    if(companion)companion.value=input.value;
+    const output=$(`#output-${id}`);if(output)output.textContent=input.value;
+    schedule();
+  }));
+  $$('#modalContent [data-adjust-number]').forEach(input=>input.addEventListener('input',()=>{
+    if(input.value==='')return;
+    const slider=$(`#modalContent [data-adjust="${input.dataset.adjustNumber}"]`);
+    if(!slider)return;
+    slider.value=clamp(Number(input.value),Number(slider.min),Number(slider.max));
+    values[input.dataset.adjustNumber]=Number(slider.value);
+    schedule();
+  }));
+  $('#adjustPreviewOn').addEventListener('change',()=>{if(!previewEnabled()){currentAdjustmentPreview=null;requestRender();}else schedule();});
+  if(def.select)$('#adjustPreset').addEventListener('change',e=>{values.preset=e.target.value;schedule();});
+  $('#resetAdjustment').addEventListener('click',()=>{
+    values={...defaults,preset:def.select?.[0]||'warm'};
+    $$('#modalContent [data-adjust]').forEach(input=>{input.value=values[input.dataset.adjust];const out=$(`#output-${input.dataset.adjust}`);if(out)out.textContent=input.value;const number=$(`#modalContent [data-adjust-number="${input.dataset.adjust}"]`);if(number)number.value=input.value;});
+    if(def.select)$('#adjustPreset').value=values.preset;
+    schedule();
+  });
+  schedule();
+};
+const canvasSizeDialog=()=>{
+  openModal(`<form>${modalHead('Canvas Size','Increase or decrease canvas space without scaling pixels.')}
+  <div class="field-row"><label>Width (px)<input type="number" name="width" min="32" max="5000" value="${state.width}" required></label><label>Height (px)<input type="number" name="height" min="32" max="5000" value="${state.height}" required></label></div>
+  <label>Anchor<select name="anchor"><option value="center">Center</option><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="bottom-left">Bottom left</option><option value="bottom-right">Bottom right</option></select></label>
+  ${modalActions('Resize canvas')}</form>`,data=>{
+    const w=Number(data.get('width')),h=Number(data.get('height'));if(!validSize(w,h))return;
+    const anchor=String(data.get('anchor'));
+    const dx=anchor.includes('left')?0:anchor.includes('right')?w-state.width:Math.round((w-state.width)/2);
+    const dy=anchor.startsWith('top')?0:anchor.startsWith('bottom')?h-state.height:Math.round((h-state.height)/2);
+    for(const l of state.layers){const out=makeCanvas(w,h),t=out.getContext('2d');t.save();t.translate(l.x+dx,l.y+dy);t.scale(l.scaleX,l.scaleY);t.drawImage(l.canvas,0,0);t.restore();l.canvas=out;if(l.maskCanvas){const mask=makeCanvas(w,h),mc=mask.getContext('2d');mc.translate(l.x+dx,l.y+dy);mc.scale(l.scaleX,l.scaleY);mc.drawImage(l.maskCanvas,0,0);l.maskCanvas=mask;}l.x=l.y=0;l.scaleX=l.scaleY=1;if(l.textConfig){l.textConfig.x+=dx;l.textConfig.y+=dy;}if(l.type!=='group')determineBounds(l);}
+    state.width=w;state.height=h;state.selection=null;state.cropRect=null;resizeStage();fitZoom();record('Canvas size');closeModal();
+  });
+};
+const rotateImage180=()=>{
+  for(const l of state.layers){const c=makeCanvas(),t=c.getContext('2d');t.translate(state.width,state.height);t.rotate(Math.PI);t.translate(l.x,l.y);t.scale(l.scaleX,l.scaleY);t.drawImage(l.canvas,0,0);l.canvas=c;l.x=l.y=0;l.scaleX=l.scaleY=1;l.textConfig=null;l.type='raster';determineBounds(l);}
+  record('Rotate document 180°');
+};
+const resetDocument=()=>{if(dirty&&!confirm('Discard unsaved changes and create a new document?'))return;newDocumentDialog();};
+const documentInfoDialog=()=>{
+  openModal(`<div>${modalHead('Document information','PixelForge document properties')}
+  <div class="help-grid"><div><span>Name</span><strong>${escapeHTML(state.name)}</strong></div><div><span>Dimensions</span><strong>${state.width} × ${state.height} px</strong></div><div><span>Resolution</span><strong>${state.resolution||72} ppi</strong></div><div><span>Color mode</span><strong>RGB · 8 bit · sRGB</strong></div><div><span>Layers</span><strong>${state.layers.length}</strong></div></div>
+  <div class="modal-actions"><button class="confirm" data-close>Close</button></div></div>`);
+};
+
+const menuDefinitions = {
+  file:[
+    ['New custom document…','Ctrl+N',resetDocument],['Open image or project as document…','Ctrl+O',()=>$('#openInput').click()],['Open PSD…','',()=>$('#psdInput').click()],['Open PixelForge project…','',()=>$('#projectInput').click()],
+    ['---'],['Place image as layer…','',()=>$('#imageInput').click()],['Open sample composition','',()=>{if(!dirty||confirm('Discard unsaved changes and load the sample?'))createDemoProject();}],
+    ['---'],['Save project','Ctrl+S',saveProject],['Save As…','',exportDialog],['Export','',[
+      ['PNG…','',()=>exportImage('png')],['JPEG…','',()=>exportImage('jpeg')],['WebP…','',()=>exportImage('webp')],['Photoshop PSD (layers)…','Ctrl+Shift+S',exportPSD],['Export options…','',exportDialog]
+    ]],['---'],['Document information…','',documentInfoDialog],['Close document','',()=>{if(dirty&&!confirm('Discard unsaved changes?'))return;createBaseDocument(1280,800,true,'Untitled-1');}]
+  ],
+  edit:[
+    ['Undo','Ctrl+Z',undo],['Redo','Ctrl+Shift+Z',redo],['---'],['Copy merged selection','Ctrl+C',copySelection],['Paste as layer','Ctrl+V',pasteSelection],['Clear selected pixels','Shift+Delete',clearSelected],
+    ['---'],['Free Transform','',()=>{setTool('move');toast('Select a layer and drag its transform handles');}],['Preferences / Shortcuts…','',helpDialog]
+  ],
+  image:[
+    ['Mode','',[['RGB Color · 8 bit (active)','',documentInfoDialog],['Other color modes (not supported)','',null]]],
+    ['Adjustments','',[
+      ['Brightness / Contrast…','',()=>adjustmentDialog('brightness')],['Levels…','',()=>adjustmentDialog('levels')],['Curves · Midtones…','',()=>adjustmentDialog('curves')],['Exposure…','',()=>adjustmentDialog('exposure')],['---'],
+      ['Vibrance…','',()=>adjustmentDialog('vibrance')],['Hue / Saturation…','',()=>adjustmentDialog('hue')],['Color Balance…','',()=>adjustmentDialog('balance')],['Black & White…','',()=>adjustmentDialog('blackwhite')],['Photo Filter…','',()=>adjustmentDialog('photofilter')],['Channel Mixer…','',()=>adjustmentDialog('mixer')],['Color Lookup…','',()=>adjustmentDialog('lookup')],['---'],
+      ['Invert','Ctrl+I',()=>applyPreset('invert')],['Posterize…','',()=>adjustmentDialog('posterize')],['Threshold…','',()=>adjustmentDialog('threshold')],['Gradient Map…','',()=>adjustmentDialog('gradientmap')],['Selective Color · Basic…','',()=>adjustmentDialog('selective')],['Shadows / Highlights…','',()=>adjustmentDialog('shadows')],['Desaturate','',()=>applyPreset('grayscale')],['HDR toning (not supported)','',null]
+    ]],
+    ['---'],['Image Size…','',resizeDialog],['Canvas Size…','',canvasSizeDialog],['Crop to Selection','',()=>{if(!state.selection){toast('Select an area first');return;}state.cropRect={...state.selection};applyCrop();}],
+    ['Image Rotation','',[['180°','',rotateImage180],['Flip Active Layer Horizontal','',()=>flipOrRotate('flip-h')],['Flip Active Layer Vertical','',()=>flipOrRotate('flip-v')],['Active Layer 90° Right','',()=>flipOrRotate('rotate-cw')],['Active Layer 90° Left','',()=>flipOrRotate('rotate-ccw')]]]
+  ],
+  layer:[
+    ['New Layer','Ctrl+Shift+N',()=>addLayer('Layer '+nextLayerId)],['New Folder / Group','Ctrl+G',()=>newGroup()],['Group Selected Layer','',()=>newGroup(true)],['Ungroup','',ungroup],['Duplicate Layer / Group','Ctrl+J',duplicateLayer],['Rename Layer…','',()=>renameLayerDialog(getActive())],
+    ['---'],['Layer Properties','',[['Toggle Visibility','',()=>{const l=getActive();if(l){l.visible=!l.visible;record('Toggle layer visibility');}}],['Toggle Lock','',()=>{const l=getActive();if(l){l.locked=!l.locked;record('Toggle layer lock');}}],['Rasterize Text','',()=>{const l=editLayer();if(l){l.type='raster';l.textConfig=null;record('Rasterize layer');}}]]],
+    ['Arrange','',[['Bring Forward','',()=>moveLayerOrder(1)],['Send Backward','',()=>moveLayerOrder(-1)]]],
+    ['---'],['Create / Release Clipping Mask','Ctrl+Alt+G',toggleClipping],['Add Mask From Selection','',addLayerMask],['Remove Layer Mask','',removeLayerMask],['Move Into Folder…','',moveToFolderDialog],['Move Out of Folder','',()=>moveToGroup(state.activeId,null)],
+    ['---'],['Merge Down','Ctrl+E',mergeDown],['Flatten Image','',flatten],['Delete Layer / Group','',()=>deleteLayer()]
+  ],
+  type:[['Add Text','T',()=>{setTool('text');toast('Click on the canvas to add text');}],['Edit Selected Text…','',()=>{const l=getActive();if(l?.textConfig)textDialog(null,l);else toast('Select an editable text layer');}],['Rasterize Selected Type','',()=>{const l=editLayer();if(l){l.textConfig=null;l.type='raster';record('Rasterize type');}}]],
+  select:[['Select All','Ctrl+A',selectAll],['Deselect','Ctrl+D',deselect],['---'],['Rectangular Marquee','M',()=>setTool('marquee')],['Clear Selected Pixels','Shift+Delete',clearSelected]],
+  filter:[['Blur · Soft','',()=>applyPreset('soften')],['Sharpen','',()=>applyPreset('sharpen')],['Grayscale','',()=>applyPreset('grayscale')],['Sepia','',()=>applyPreset('sepia')],['Invert','',()=>applyPreset('invert')]],
+  view:[['Fit to Screen','Ctrl+0',fitZoom],['Actual Pixels (100%)','Ctrl+1',()=>{state.panX=state.panY=0;setZoom(1);}],['Zoom In','Ctrl++',()=>setZoom(state.zoom*1.25)],['Zoom Out','Ctrl+-',()=>setZoom(state.zoom/1.25)],['Show / Hide Grid','',()=>{gridEnabled=!gridEnabled;requestRender();}]],
+  window:[['Navigator Panel','',()=>toggleInspector('.navigator-section')],['Color Panel','',()=>toggleInspector('.color-section')],['Adjustments Panel','',()=>toggleInspector('.adjustments-section')],['Layers Panel','',()=>toggleInspector('.layer-section')],['History Panel','',()=>toggleInspector('.history-section')],['Show All Panels','',()=>$$('.inspector-section').forEach(x=>x.classList.remove('panel-collapsed'))]],
+  help:[['Keyboard shortcuts…','?',helpDialog],['Document information…','',documentInfoDialog],['About PixelForge Studio','',()=>openModal(`<div>${modalHead('PixelForge Studio','Local raster editor · Extended workspace')}<p>PSD raster-layer support and Photoshop-inspired editing menus. This is an independent application, not Adobe Photoshop. Some Photoshop capabilities, including smart objects, full adjustment layers, and CMYK, are not supported.</p><div class="modal-actions"><button class="confirm" data-close>Close</button></div></div>`)]]
+};
+const toggleInspector = selector=>{const p=$(selector);if(p)p.classList.toggle('panel-collapsed');};
+const closeMenus = () => $$('.menu-item').forEach(el=>el.classList.remove('menu-open'));
+const setupMenus = () => {
+  const renderItems=(items,parent=[])=>items.map(([label,shortcut,action],i)=>{
+    if(label==='---')return '<hr>';
+    const path=[...parent,i].join('.');
+    if(Array.isArray(action))return `<div class="submenu-parent"><button type="button" class="submenu-toggle" aria-haspopup="true" aria-expanded="false"><span>${escapeHTML(label)}</span><span class="sub-arrow">›</span></button><div class="submenu">${renderItems(action,[...parent,i])}</div></div>`;
+    return `<button type="button" data-path="${path}" ${typeof action==='function'?'':'disabled'}><span>${escapeHTML(label)}</span><kbd>${escapeHTML(shortcut||'')}</kbd></button>`;
+  }).join('');
+  for(const [name,items] of Object.entries(menuDefinitions)){
+    const root=$(`#menu-${name}`);if(!root)continue;
+    root.innerHTML=renderItems(items);
+    root.addEventListener('click',e=>{
+      const sub=e.target.closest('.submenu-toggle');if(sub){e.stopPropagation();const par=sub.closest('.submenu-parent');par.classList.toggle('sub-open');sub.setAttribute('aria-expanded',par.classList.contains('sub-open')?'true':'false');return;}
+      const b=e.target.closest('[data-path]');if(!b||b.disabled)return;
+      let chosen=items;const path=b.dataset.path.split('.').map(Number);
+      for(let i=0;i<path.length;i++)chosen=(i===path.length-1?chosen[path[i]]:chosen[path[i]][2]);
+      closeMenus();chosen[2]();
+    });
+  }
+  $$('.menu-item>button').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();const item=b.parentElement,open=item.classList.contains('menu-open');closeMenus();if(!open)item.classList.add('menu-open');
+  }));
+  document.addEventListener('click',e=>{if(!e.target.closest('.menu-item'))closeMenus();});
+  window.addEventListener('keydown',e=>{if(e.key==='ArrowRight'&&e.target.closest('.submenu-toggle')){e.target.closest('.submenu-parent').classList.add('sub-open');e.target.closest('.submenu-parent').querySelector('.submenu button:not(:disabled)')?.focus();}});
+};
+const setupUI = () => {
+  setupMenus();
+  $$('.tool').forEach(btn=>btn.addEventListener('click',()=>setTool(btn.dataset.tool)));
+  $('#headerNew').addEventListener('click',resetDocument);
+  $('#headerResize').addEventListener('click',canvasSizeDialog);
+  $('#canvasSizeLabel').addEventListener('click',canvasSizeDialog);
+  $('#headerOpen').addEventListener('click',()=>$('#openInput').click());
+  $('#headerExport').addEventListener('click',exportDialog);
+  $('#undoBtn').addEventListener('click',undo);$('#redoBtn').addEventListener('click',redo);
+  $('#helpBtn').addEventListener('click',helpDialog);
+  $('#fitNavigator').addEventListener('click',fitZoom);$('#fitBtn').addEventListener('click',fitZoom);
+  $('#navigatorZoomRange').addEventListener('input',e=>setZoom(Number(e.target.value)/100));
+  $('#minusZoom').addEventListener('click',()=>setZoom(state.zoom/1.25));
+  $('#plusZoom').addEventListener('click',()=>setZoom(state.zoom*1.25));
+  $('#gridBtn').addEventListener('click',()=>{gridEnabled=!gridEnabled;$('#gridBtn').style.color=gridEnabled?'#b5a1ff':'';requestRender();});
+  const swatches=['#8b5cf6','#d946ef','#f43f5e','#ff8745','#ffd45d','#45d6b4','#33a9ef','#ffffff','#9ba3b5','#3c4b69','#1c1c29','#000000'];
+  $('#swatches').innerHTML=swatches.map(c=>`<button data-color="${c}" style="background:${c}" title="${c}"></button>`).join('');
+  $('#swatches').addEventListener('click',e=>{const b=e.target.closest('[data-color]');if(b)setColor(b.dataset.color);});
+  $('#colorPicker').addEventListener('input',e=>setColor(e.target.value));
+  $('#hexInput').addEventListener('change',e=>setColor(e.target.value));
+  $('#toolbarColor').addEventListener('click',()=>$('#colorPicker').click());
+  $('#resetColors').addEventListener('click',()=>{setColor('#000000');state.secondary='#ffffff';});
+  $('#pickColorBtn').addEventListener('click',()=>setTool('eyedropper'));
+  ['brightness','contrast','saturation','hue'].forEach(key=>{
+    const input=$(`#adj${key[0].toUpperCase()}${key.slice(1)}`);
+    input.addEventListener('input',e=>{state.adjustments[key]=Number(e.target.value);$(`#${key}Value`).textContent=e.target.value+(key==='hue'?'°':'');requestRender();});
+  });
+  $('#resetAdj').addEventListener('click',()=>resetAdjustments());
+  $('#applyAdj').addEventListener('click',applyAdjustments);
+  $('#layerPropertiesBody').addEventListener('change',e=>{
+    const input=e.target.closest('[data-property]');if(!input)return;
+    applyLayerProperty(input.dataset.property,Number(input.value));
+  });
+  $('#fullAdjustmentsBtn').addEventListener('click',()=>{
+    const keys=Object.keys(adjustmentDefinitions);
+    openModal(`<div>${modalHead('Detailed image adjustments','Choose an adjustment. Each tool opens its own precision controls with a live image preview.')}<div class="adjustment-picker">${keys.map(k=>`<button type="button" data-choose-adjust="${k}">${escapeHTML(adjustmentDefinitions[k].title)}</button>`).join('')}</div><div class="modal-actions"><button data-close type="button">Close</button></div></div>`);
+    $('#modalContent').addEventListener('click',e=>{const b=e.target.closest('[data-choose-adjust]');if(b)adjustmentDialog(b.dataset.chooseAdjust);});
+  });
+  $$('.quick-filters [data-preset]').forEach(b=>b.addEventListener('click',()=>applyPreset(b.dataset.preset)));
+  $('#newLayerBtn').addEventListener('click',()=>addLayer('Layer '+nextLayerId));
+  $('#newGroupBtn').addEventListener('click',()=>newGroup());
+  $('#groupSelectedBtn').addEventListener('click',()=>newGroup(true));
+  $('#clipLayerBtn').addEventListener('click',toggleClipping);
+  $('#maskLayerBtn').addEventListener('click',addLayerMask);
+  $('#duplicateLayerBtn').addEventListener('click',duplicateLayer);
+  $('#deleteLayerBtn').addEventListener('click',()=>deleteLayer());
+  $('#addImageLayer').addEventListener('click',()=>$('#imageInput').click());
+  $('#moveLayerUp').addEventListener('click',()=>moveLayerOrder(1));
+  $('#moveLayerDown').addEventListener('click',()=>moveLayerOrder(-1));
+  $('#blendSelect').addEventListener('change',e=>{const l=getActive();if(!l)return;l.blend=e.target.value;record('Change blend mode');});
+  $('#layerOpacity').addEventListener('change',e=>{const l=getActive();if(!l)return;l.opacity=clamp(Number(e.target.value)/100,0,1);record('Change layer opacity');});
+  $('#layerList').addEventListener('click',e=>{
+    const row=e.target.closest('.layer-row');if(!row)return;
+    const id=Number(row.dataset.id),layer=state.layers.find(l=>l.id===id),btn=e.target.closest('[data-action]');
+    if(btn){const act=btn.dataset.action;
+      if(act==='delete'){deleteLayer(id);return;}if(act==='expand'){layer.expanded=!layer.expanded;renderLayers();return;}
+      if(act==='clip'){selectLayer(id);toggleClipping();return;}
+      if(act==='eye')layer.visible=!layer.visible;else layer.locked=!layer.locked;
+      record(act==='eye'?'Toggle layer visibility':'Toggle layer lock');return;}
+    selectLayer(id);
+  });
+  $('#layerList').addEventListener('dblclick',e=>{
+    const row=e.target.closest('.layer-row');if(!row)return;
+    const l=state.layers.find(l=>l.id===Number(row.dataset.id));
+    if(e.target.closest('.layer-name'))renameLayerDialog(l);
+    else if(l?.textConfig)textDialog(null,l);
+  });
+  let draggedId=null;
+  $('#layerList').addEventListener('dragstart',e=>{const row=e.target.closest('.layer-row');if(row){draggedId=Number(row.dataset.id);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(draggedId));}});
+  $('#layerList').addEventListener('dragover',e=>{const row=e.target.closest('.layer-row');if(!row)return;e.preventDefault();row.classList.add('drag-target');e.dataTransfer.dropEffect='move';});
+  $('#layerList').addEventListener('dragleave',e=>{const row=e.target.closest('.layer-row');if(row)row.classList.remove('drag-target');});
+  $('#layerList').addEventListener('dragend',()=>{$$('.layer-row').forEach(x=>x.classList.remove('drag-target'));draggedId=null;});
+  $('#layerList').addEventListener('drop',e=>{
+    e.preventDefault();$$('.layer-row').forEach(x=>x.classList.remove('drag-target'));
+    const row=e.target.closest('.layer-row'),dst=row&&state.layers.find(l=>l.id===Number(row.dataset.id));
+    const src=state.layers.find(l=>l.id===draggedId);if(!src||!dst||src===dst)return;
+    if(dst.type==='group'){moveToGroup(src.id,dst.id);draggedId=null;return;}
+    if(src.parentId!==dst.parentId){if(!canMoveToGroup(src,dst.parentId??null))return;src.parentId=dst.parentId??null;}
+    const subtree=[src,...descendantsOf(src.id)],ids=new Set(subtree.map(l=>l.id));state.layers=state.layers.filter(l=>!ids.has(l.id));
+    const at=state.layers.indexOf(dst)+1;state.layers.splice(at,0,...subtree);normalizeHierarchy();state.activeId=src.id;record('Move layer');draggedId=null;
+  });
+  $('#layerList').addEventListener('contextmenu',e=>{const row=e.target.closest('.layer-row');if(!row)return;e.preventDefault();selectLayer(Number(row.dataset.id));showLayerContextMenu(e.clientX,e.clientY);});
+  $('#historyList').addEventListener('click',e=>{const b=e.target.closest('[data-history]');if(b)restore(Number(b.dataset.history));});
+  $('#imageInput').addEventListener('change',async e=>{for(const f of e.target.files)await importImage(f);e.target.value='';});
+  $('#projectInput').addEventListener('change',async e=>{if(e.target.files[0])await openProjectFile(e.target.files[0]);e.target.value='';});
+  $('#openInput').addEventListener('change',async e=>{if(e.target.files[0])await openAnyFile(e.target.files[0]);e.target.value='';});
+  $('#psdInput').addEventListener('change',async e=>{if(e.target.files[0])await openPSDFile(e.target.files[0]);e.target.value='';});
+  modalBg.addEventListener('click',e=>{if(e.target===modalBg)closeModal();});
+  viewport.addEventListener('dragenter',e=>{if(!e.dataTransfer?.types?.includes('Files'))return;e.preventDefault();dragCounter++;$('#dropOverlay').classList.add('visible');});
+  viewport.addEventListener('dragover',e=>{if(!e.dataTransfer?.types?.includes('Files'))return;e.preventDefault();e.dataTransfer.dropEffect='copy';});
+  viewport.addEventListener('dragleave',e=>{e.preventDefault();dragCounter=Math.max(0,dragCounter-1);if(!dragCounter)$('#dropOverlay').classList.remove('visible');});
+  viewport.addEventListener('drop',async e=>{
+    e.preventDefault();dragCounter=0;$('#dropOverlay').classList.remove('visible');
+    const files=[...(e.dataTransfer.files||[])];for(const f of files)await openAnyFile(f);
+  });
+  setColor(state.color);setTool(state.tool);
+};
+const setupPointers = () => {
+  overlay.addEventListener('pointerdown',e=>{
+    if(e.button!==0&&e.button!==1)return;
+    e.preventDefault();overlay.setPointerCapture(e.pointerId);
+    const p=docPoint(e),tool=(panHolding||e.button===1)?'hand':state.tool;
+    if(tool==='hand'){drawInteraction={tool:'hand',clientX:e.clientX,clientY:e.clientY,panX:state.panX,panY:state.panY};overlay.style.cursor='grabbing';return;}
+    if(tool==='zoom'){setZoom(state.zoom*(e.altKey?.8:1.25));return;}
+    if(tool==='eyedropper'){sampleColor(p);return;}
+    if(tool==='fill'){floodFill(p);return;}
+    if(tool==='text'){textDialog(p);return;}
+    if(['brush','eraser'].includes(tool)){
+      const l=editLayer();if(!l)return;startBrush(l,p,tool==='eraser');requestRender();return;
+    }
+    if(tool==='move'){
+      const active=getActive();
+      if(active?.type==='group'){
+        if(active.locked){toast('Unlock this folder to move it');return;}
+        drawInteraction={tool:'move-group',start:p,parts:descendantsOf(active.id).filter(l=>l.type!=='group'&&!l.locked).map(l=>({id:l.id,x:l.x,y:l.y}))};return;
+      }
+      const l=editLayer();if(!l)return;
+      const handle=hitTransformHandle(p,l);
+      if(handle){drawInteraction={tool:'transform',handle,start:p,bounds:docLayerBounds(l),layerId:l.id};return;}
+      drawInteraction={tool:'move',start:p,startX:l.x,startY:l.y,layerId:l.id};return;
+    }
+    drawInteraction={tool,start:p,end:p,shift:e.shiftKey};
+    if(tool==='marquee')state.selection=null;
+    if(tool==='crop')state.cropRect=null;
+    drawOverlay();
+  });
+  overlay.addEventListener('pointermove',e=>{
+    const p=docPoint(e);cursorPoint=p;
+    $('#statusCoords').textContent=`X: ${Math.round(p.x)}  Y: ${Math.round(p.y)}`;
+    const d=drawInteraction;
+    if(d){
+      if(d.tool==='hand'){
+        state.panX=d.panX+(e.clientX-d.clientX);state.panY=d.panY+(e.clientY-d.clientY);applyStageZoom();return;
+      }
+      if(d.tool==='move-group'){
+        for(const item of d.parts){const l=state.layers.find(x=>x.id===item.id);if(l){l.x=item.x+(p.x-d.start.x);l.y=item.y+(p.y-d.start.y);}}
+        requestRender();return;
+      }
+      if(d.tool==='move'){
+        const l=state.layers.find(l=>l.id===d.layerId);if(l){l.x=d.startX+(p.x-d.start.x);l.y=d.startY+(p.y-d.start.y);requestRender();}return;
+      }
+      if(d.tool==='transform'){transformLayer(d,p,e.shiftKey);requestRender();return;}
+      if(['brush','eraser'].includes(d.tool)){continueBrush(p);return;}
+      d.end=p;d.shift=e.shiftKey;
+      if(d.tool==='marquee'){
+        const r=rectFromPoints(d.start,p);state.selection=r.w>2&&r.h>2?r:null;
+      }
+      if(d.tool==='crop'){
+        const r=rectFromPoints(d.start,p);state.cropRect=r.w>2&&r.h>2?r:null;
+      }
+    }
+    drawOverlay();
+  });
+  const finishPointer=e=>{
+    if(!drawInteraction)return;
+    const d=drawInteraction,p=docPoint(e);
+    if(d.tool==='hand'){drawInteraction=null;overlay.style.cursor=panHolding?'grab':state.tool==='hand'?'grab':'crosshair';return;}
+    if(d.tool==='move-group'){drawInteraction=null;
+      const changed=d.parts.some(item=>{const l=state.layers.find(x=>x.id===item.id);return l&&(Math.abs(l.x-item.x)>.5||Math.abs(l.y-item.y)>.5);});
+      if(changed)record('Move folder');else requestRender();return;
+    }
+    if(d.tool==='move'){
+      drawInteraction=null;
+      const l=state.layers.find(l=>l.id===d.layerId);
+      if(l&&(Math.abs(l.x-d.startX)>.5||Math.abs(l.y-d.startY)>.5))record('Move layer');
+      else requestRender();return;
+    }
+    if(d.tool==='transform'){drawInteraction=null;record('Resize layer');return;}
+    if(['brush','eraser'].includes(d.tool)){endBrush();return;}
+    if(['rect','ellipse'].includes(d.tool)){
+      drawInteraction=null;applyShape(d.tool,rectFromPoints(d.start,p,e.shiftKey));requestRender();return;
+    }
+    if(d.tool==='gradient'){drawInteraction=null;applyGradient(d.start,p);requestRender();return;}
+    if(d.tool==='marquee'){state.selection=rectFromPoints(d.start,p);if(state.selection.w<3||state.selection.h<3)state.selection=null;}
+    if(d.tool==='crop'){state.cropRect=rectFromPoints(d.start,p);if(state.cropRect.w<3||state.cropRect.h<3)state.cropRect=null;updateToolOptions();}
+    drawInteraction=null;requestRender();
+  };
+  overlay.addEventListener('pointerup',finishPointer);
+  overlay.addEventListener('pointercancel',finishPointer);
+  overlay.addEventListener('pointerleave',()=>{cursorPoint=null;drawOverlay();});
+  viewport.addEventListener('wheel',e=>{
+    if(e.ctrlKey||e.metaKey){e.preventDefault();setZoom(state.zoom*(e.deltaY<0?1.12:.89));}
+  },{passive:false});
+};
+const setupKeys = () => {
+  window.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){closeMenus();if(modalOpen){closeModal();return;}state.cropRect=null;state.selection=null;drawInteraction=null;requestRender();return;}
+    const tag=e.target?.tagName?.toLowerCase();const ctrlNow=e.ctrlKey||e.metaKey;
+    if(modalOpen)return;
+    if((['input','textarea','select'].includes(tag)||e.target?.isContentEditable)&&!(ctrlNow&&['s','o'].includes(e.key.toLowerCase())))return;
+    const ctrl=e.ctrlKey||e.metaKey,key=e.key.toLowerCase();
+    if(ctrl){
+      if(key==='g'&&e.altKey){e.preventDefault();toggleClipping();return;}
+      const combo={z:()=>e.shiftKey?redo():undo(),y:redo(),s:()=>e.shiftKey?exportPSD():saveProject,o:()=>$('#openInput').click(),n:()=>e.shiftKey?addLayer('Layer '+nextLayerId):newDocumentDialog(),g:()=>newGroup(true),j:duplicateLayer,i:()=>applyPreset('invert'),d:deselect,a:selectAll,c:copySelection,e:mergeDown,'0':fitZoom,'1':()=>setZoom(1),'+':()=>setZoom(state.zoom*1.25),'=':()=>setZoom(state.zoom*1.25),'-':()=>setZoom(state.zoom/1.25)};
+      if(combo[key]){e.preventDefault();combo[key]();}return;
+    }
+    if(e.code==='Space'){e.preventDefault();panHolding=true;overlay.style.cursor='grab';return;}
+    if(e.key==='Delete'||e.key==='Backspace'){
+      e.preventDefault();
+      // Delete / Backspace remove the selected layer as expected in the Layers panel.
+      // Shift+Delete clears pixels inside the current selection instead.
+      if(e.shiftKey)clearSelected();else deleteLayer();
+      return;
+    }
+    if(e.key==='Enter'&&state.tool==='crop'){e.preventDefault();applyCrop();return;}
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
+      const l=getActive();if(!l||l.locked)return;e.preventDefault();const v=e.shiftKey?10:1;
+      if(e.key==='ArrowUp')l.y-=v;if(e.key==='ArrowDown')l.y+=v;if(e.key==='ArrowLeft')l.x-=v;if(e.key==='ArrowRight')l.x+=v;
+      record('Nudge layer');return;
+    }
+    const map={v:'move',m:'marquee',b:'brush',e:'eraser',g:'fill',d:'gradient',i:'eyedropper',t:'text',c:'crop',h:'hand',z:'zoom',u:e.shiftKey?'ellipse':'rect'};
+    if(map[key]){e.preventDefault();setTool(map[key]);}
+  });
+  window.addEventListener('keyup',e=>{if(e.code==='Space'){panHolding=false;if(state.tool!=='hand'&&!drawInteraction)overlay.style.cursor=state.tool==='move'?'move':'crosshair';}});
+  window.addEventListener('blur',()=>{panHolding=false;});
+  window.addEventListener('paste',async e=>{
+    if(modalOpen||['input','textarea'].includes(e.target?.tagName?.toLowerCase()))return;
