@@ -151,6 +151,15 @@
 @media(max-height:690px){.newdoc-modal .nd-workspace{height:calc(100dvh - 155px);max-height:calc(100dvh - 155px)}.newdoc-modal .nd-actions{bottom:-8px}}
 
 
+/* Photoshop-inspired Save workflows */
+.save-workflow{min-width:min(455px,calc(100vw - 50px))}
+.save-workflow .save-meta{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 13px;border:1px solid #393b48;background:#22242e;border-radius:8px;margin:12px 0}
+.save-workflow .save-meta div{display:flex;flex-direction:column;gap:3px}
+.save-workflow .save-meta strong{color:#dfe0ed;font-size:12px}
+.save-workflow .save-meta span{color:#9297a9;font-size:10px}
+.save-workflow .save-note{background:#20232b;border:1px solid #393c47;border-radius:7px;padding:11px 12px;color:#aeb3c4;font-size:11px;line-height:1.55;margin:12px 0}
+.save-workflow .save-quality-hidden{display:none}
+.save-workflow .modal-actions .confirm:disabled{opacity:.5;cursor:wait}
 /* Tabbed inspector */
 .inspector-tabs-section{padding:0!important;background:#20212b}
 .inspector-tabs{height:39px;display:flex;align-items:stretch;border-bottom:1px solid #3a3c48;background:#1c1e27;position:sticky;top:0;z-index:4}
@@ -1726,7 +1735,7 @@ const projectDataFromState = () => ({
 const saveActiveSessionNow = async () => {
   if(appShell.classList.contains('home-mode')||!state.layers.length)return;
   try{
-    const recovery={id:PF_SESSION_ID,name:state.name||'Untitled',width:state.width,height:state.height,updatedAt:Date.now(),project:projectDataFromState()};
+    const recovery={id:PF_SESSION_ID,name:state.name||'Untitled',libraryId:state.libraryId||null,width:state.width,height:state.height,updatedAt:Date.now(),project:projectDataFromState()};
     await libraryTransaction('readwrite',store=>store.put(recovery));
   }catch(err){console.warn('PixelForge recovery save failed',err);}
 };
@@ -1760,14 +1769,25 @@ const libraryGet = async id => {
     req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);tx.oncomplete=()=>db.close();
   });
 };
-const saveProjectToLibrary = async () => {
+const saveProjectToLibrary = async ({name=state.name,newFile=false,copy=false}={}) => {
   try{
-    const now=Date.now(),existingId=state.libraryId||null,id=existingId||('pf-'+now+'-'+Math.random().toString(36).slice(2,8));
-    const record={id,name:state.name||'Untitled',width:state.width,height:state.height,updatedAt:now,thumbnail:projectThumbnail(),project:projectDataFromState()};
+    const cleanName=String(name||'Untitled').trim().slice(0,80)||'Untitled';
+    const id=(!newFile&&!copy&&state.libraryId)||('pf-'+Date.now()+'-'+Math.random().toString(36).slice(2,8));
+    const project=projectDataFromState();project.name=cleanName;
+    const record={id,name:cleanName,width:state.width,height:state.height,updatedAt:Date.now(),thumbnail:projectThumbnail(),project};
     await libraryTransaction('readwrite',store=>store.put(record));
-    state.libraryId=id;setDirty(false);toast('Saved to PixelForge Library');
+    if(!copy){
+      state.name=cleanName;state.libraryId=id;setDirty(false);
+      document.title=state.name+' — PixelForge Studio';updateStatus();scheduleActiveSessionSave();
+    }
+    toast(copy?'Copy saved to PixelForge Library':'Saved to PixelForge Library');
     if(appShell.classList.contains('home-mode'))await renderHomeLibrary();
-  }catch(err){console.error(err);toast('Could not save to the browser library');}
+    return true;
+  }catch(err){
+    console.error('PixelForge library save failed',err);
+    toast('Could not save to browser library. Check storage or download a .pforge backup.');
+    return false;
+  }
 };
 const downloadProject = () => {
   const data=projectDataFromState();
@@ -1806,7 +1826,98 @@ const openLibraryProject = async id => {
   try{const item=await libraryGet(id);if(!item?.project){toast('Saved project could not be found');return;}await openProjectData(item.project,item.name||'Saved project');state.libraryId=id;showEditor();toast('Saved project opened');}
   catch(err){console.error(err);toast('Could not open saved project');}
 };
-const saveProject = () => saveProjectToLibrary();
+
+const cleanSaveName = raw => String(raw||'').trim()
+  .replace(/\.(?:pforge|psd|png|jpe?g|webp)$/i,'')
+  .replace(/[\\/:*?"<>|\x00-\x1F]/g,'-').replace(/\s+/g,' ').trim().slice(0,80);
+const downloadNamedSave = async (format,name,quality=92) => {
+  const basename=cleanSaveName(name)||'Untitled';
+  if(format==='pforge'){
+    const data=projectDataFromState();data.name=basename;
+    triggerDownload(new Blob([JSON.stringify(data)],{type:'application/json'}),basename+'.pforge');
+    return;
+  }
+  if(format==='psd'){
+    if(state.width>8192||state.height>8192||state.width*state.height>16000000)
+      throw new Error('PSD supports up to 8192 px per side and 16 megapixels');
+    const bytes=PixelForgePSD.write({width:state.width,height:state.height,layers:psdExportLayers()});
+    triggerDownload(new Blob([bytes],{type:'image/vnd.adobe.photoshop'}),basename+'.psd');
+    return;
+  }
+  if(!['png','jpeg','webp'].includes(format))throw new Error('Unsupported save format');
+  const out=makeCanvas(),ctx=out.getContext('2d');
+  drawLayers(ctx,{showPreview:false,background:format==='jpeg'?'#ffffff':null});
+  const mime=format==='jpeg'?'image/jpeg':format==='webp'?'image/webp':'image/png';
+  const blob=await new Promise((resolve,reject)=>out.toBlob(
+    result=>result?resolve(result):reject(new Error('Could not encode image')),mime,clamp(Number(quality)/100,.1,1)
+  ));
+  triggerDownload(blob,basename+'.'+(format==='jpeg'?'jpg':format));
+};
+const saveWorkflowDialog = (mode='as') => {
+  const isCopy=mode==='copy';
+  const initialName=isCopy?state.name+' copy':state.name;
+  const dialogTitle=isCopy?'Save a Copy':mode==='first'?'Save Document':'Save As';
+  const description=isCopy?'Create an independent copy. Your open document remains unchanged.':'Choose a file name, format, and save location.';
+  const html='<form class="save-workflow">'+modalHead(dialogTitle,description)
+    +'<label>File name<input name="name" value="'+escapeHTML(initialName)+'" maxlength="90" autocomplete="off" required></label>'
+    +'<div class="field-row"><label>Save to<select name="destination"><option value="library">PixelForge Library</option><option value="computer">This computer (download)</option></select></label>'
+    +'<label>Format<select name="format"><option value="pforge">PixelForge Project (.pforge)</option><option value="psd">Photoshop (.psd)</option>'
+    +'<option value="png">PNG image (.png)</option><option value="jpeg">JPEG image (.jpg)</option><option value="webp">WebP image (.webp)</option></select></label></div>'
+    +'<div class="save-meta"><div><span>DOCUMENT SIZE</span><strong>'+state.width.toLocaleString()+' × '+state.height.toLocaleString()+' px</strong></div>'
+    +'<div><span>LAYERS</span><strong>'+state.layers.length+' layers</strong></div></div>'
+    +'<div class="save-note" id="saveWorkflowNote" aria-live="polite"></div>'
+    +'<label id="saveQualityRow" class="save-quality-hidden">Image quality (JPEG / WebP)<input name="quality" type="number" min="10" max="100" value="92"></label>'
+    +'<div class="modal-actions"><button type="button" data-close>Cancel</button><button type="submit" class="confirm" id="saveWorkflowSubmit">'+(isCopy?'Save Copy':'Save')+'</button></div></form>';
+  openModal(html,async data=>{
+    const form=$('#modalContent form'),button=$('#saveWorkflowSubmit');
+    if(!form||!button||button.disabled)return;
+    const name=cleanSaveName(data.get('name'));
+    const destination=String(data.get('destination')),format=String(data.get('format')),quality=Number(data.get('quality'))||92;
+    if(!name){toast('Enter a document name');return;}
+    if(destination==='library'&&format!=='pforge'){toast('The PixelForge Library stores native .pforge files only');return;}
+    button.disabled=true;button.textContent='Saving…';
+    try{
+      if(destination==='library'){
+        const saved=await saveProjectToLibrary({name,newFile:true,copy:isCopy});
+        if(!saved){button.disabled=false;button.textContent=isCopy?'Save Copy':'Save';return;}
+      }else{
+        await downloadNamedSave(format,name,quality);
+        if(!isCopy&&format==='pforge'){
+          state.name=name;state.libraryId=null;setDirty(false);
+          document.title=state.name+' — PixelForge Studio';updateStatus();scheduleActiveSessionSave();
+        }
+        toast(isCopy?'Copy downloaded':format==='pforge'?'Editable project downloaded':'File downloaded; the editable original is unchanged');
+      }
+      closeModal();
+    }catch(err){
+      console.error('Save failed',err);toast('Could not save: '+err.message);
+      button.disabled=false;button.textContent=isCopy?'Save Copy':'Save';
+    }
+  });
+  const form=$('#modalContent form'),destination=form.elements.namedItem('destination');
+  const format=form.elements.namedItem('format'),qualityRow=$('#saveQualityRow'),note=$('#saveWorkflowNote');
+  const refresh=()=>{
+    const type=format.value,local=destination.value==='library';
+    qualityRow.classList.toggle('save-quality-hidden',!['jpeg','webp'].includes(type));
+    if(local)note.textContent='Editable PixelForge project. Preserves layers, folders and masks. This library is stored in this browser, not the cloud. Download a .pforge backup for safety.';
+    else if(type==='pforge')note.textContent='Editable project retaining PixelForge layers and masks. Your browser downloads a .pforge file rather than automatically overwriting an existing download.';
+    else if(type==='psd')note.textContent='Layered Photoshop PSD. Folder structure, masks and clipping may be rasterized. Some native Photoshop properties cannot be preserved.';
+    else note.textContent='Flattened image only. The saved image will not have editable layers, but the open PixelForge document remains fully editable.';
+  };
+  destination.addEventListener('change',()=>{
+    if(destination.value==='library'&&format.value!=='pforge')format.value='pforge';
+    refresh();
+  });
+  format.addEventListener('change',()=>{
+    if(format.value!=='pforge'&&destination.value==='library')destination.value='computer';
+    refresh();
+  });
+  refresh();
+};
+const saveProject = () => state.libraryId?saveProjectToLibrary():saveWorkflowDialog('first');
+const saveAsDialog = () => saveWorkflowDialog('as');
+const saveCopyDialog = () => saveWorkflowDialog('copy');
+
 const loadCanvasImage = src => new Promise((resolve,reject)=>{
   const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('Image could not be loaded'));img.src=src;
 });
@@ -1873,7 +1984,7 @@ const importImage = async file => {
   }catch(err){console.error(err);toast('Could not import this image');}
 };
 const helpDialog = () => {
-  const shortcuts=[['V','Move layer'],['M','Rectangle selection'],['B','Brush'],['E','Eraser'],['G','Paint bucket'],['T','Text'],['U','Rectangle'],['C','Crop'],['H','Hand'],['Z','Zoom'],['Ctrl + Z','Undo'],['Ctrl + Shift + Z','Redo'],['Ctrl + D','Deselect'],['Ctrl + C / V','Copy / paste'],['Ctrl + S','Save to PixelForge Library'],['Ctrl + Shift + S','Export layered Photoshop PSD'],['Space + drag','Pan canvas'],['Ctrl + scroll','Zoom canvas'],['Shift + click layer','Select a layer range'],['Ctrl/Cmd + click layer','Toggle layers in multi-selection'],['Delete','Delete all highlighted layers / folders'],['Shift + corner drag','Resize proportionally'],['Alt + corner drag','Resize proportionally from center'],['Shift + Delete','Clear selected pixels'],['Ctrl + G','Group selected layer'],['Ctrl + Alt + G','Clipping mask'],['Enter','Apply crop'],['Arrows','Nudge selected layer(s)']];
+  const shortcuts=[['V','Move layer'],['M','Rectangle selection'],['B','Brush'],['E','Eraser'],['G','Paint bucket'],['T','Text'],['U','Rectangle'],['C','Crop'],['H','Hand'],['Z','Zoom'],['Ctrl + Z','Undo'],['Ctrl + Shift + Z','Redo'],['Ctrl + D','Deselect'],['Ctrl + C / V','Copy / paste'],['Ctrl + S','Save current document'],['Ctrl + Shift + S','Save As'],['Space + drag','Pan canvas'],['Ctrl + scroll','Zoom canvas'],['Shift + click layer','Select a layer range'],['Ctrl/Cmd + click layer','Toggle layers in multi-selection'],['Delete','Delete all highlighted layers / folders'],['Shift + corner drag','Resize proportionally'],['Alt + corner drag','Resize proportionally from center'],['Shift + Delete','Clear selected pixels'],['Ctrl + G','Group selected layer'],['Ctrl + Alt + G','Clipping mask'],['Enter','Apply crop'],['Arrows','Nudge selected layer(s)']];
   openModal(`<div>${modalHead('Keyboard shortcuts','Speed up your editing workflow.')}
     <div class="help-grid">${shortcuts.map(([k,v])=>`<div><span>${v}</span><kbd>${k}</kbd></div>`).join('')}</div>
     <div class="modal-actions"><button class="confirm" data-close>Got it</button></div></div>`);
@@ -2087,8 +2198,8 @@ const menuDefinitions = {
   file:[
     ['Home','',showHome],['---'],['New Custom Document…','Ctrl+N',requestCustomDocument],['New From Presets…','',resetDocument],['Open image or project as document…','Ctrl+O',()=>$('#openInput').click()],['Open PSD…','',()=>$('#psdInput').click()],['Open PixelForge project…','',()=>$('#projectInput').click()],
     ['---'],['Place image as layer…','',()=>$('#imageInput').click()],['Open sample composition','',()=>{if(!dirty||confirm('Discard unsaved changes and load the sample?'))createDemoProject();}],
-    ['---'],['Save to PixelForge Library','Ctrl+S',saveProject],['Download PixelForge project…','',downloadProject],['Save As…','',exportDialog],['Export','',[
-      ['PNG…','',()=>exportImage('png')],['JPEG…','',()=>exportImage('jpeg')],['WebP…','',()=>exportImage('webp')],['Photoshop PSD (layers)…','Ctrl+Shift+S',exportPSD],['Export options…','',exportDialog]
+    ['---'],['Save','Ctrl+S',saveProject],['Save As…','Ctrl+Shift+S',saveAsDialog],['Save a Copy…','',saveCopyDialog],['Download PixelForge project…','',downloadProject],['---'],['Export','',[
+      ['PNG…','',()=>exportImage('png')],['JPEG…','',()=>exportImage('jpeg')],['WebP…','',()=>exportImage('webp')],['Photoshop PSD (layers)…','',exportPSD],['Export options…','',exportDialog]
     ]],['---'],['Document information…','',documentInfoDialog],['Close document','',()=>{if(dirty&&!confirm('Discard unsaved changes?'))return;createBaseDocument(1280,800,true,'Untitled-1');}]
   ],
   edit:[
@@ -2364,7 +2475,7 @@ const setupKeys = () => {
     const ctrl=e.ctrlKey||e.metaKey,key=e.key.toLowerCase();
     if(ctrl){
       if(key==='g'&&e.altKey){e.preventDefault();toggleClipping();return;}
-      const combo={z:()=>e.shiftKey?redo():undo(),y:redo(),s:()=>e.shiftKey?exportPSD():saveProject,o:()=>$('#openInput').click(),n:()=>e.shiftKey?addLayer('Layer '+nextLayerId):requestCustomDocument(),g:()=>newGroup(true),j:duplicateLayer,i:()=>applyPreset('invert'),d:deselect,a:selectAll,c:copySelection,e:mergeDown,'0':fitZoom,'1':()=>setZoom(1),'+':()=>setZoom(state.zoom*1.25),'=':()=>setZoom(state.zoom*1.25),'-':()=>setZoom(state.zoom/1.25)};
+      const combo={z:()=>e.shiftKey?redo():undo(),y:redo(),s:()=>e.shiftKey?saveAsDialog():saveProject(),o:()=>$('#openInput').click(),n:()=>e.shiftKey?addLayer('Layer '+nextLayerId):requestCustomDocument(),g:()=>newGroup(true),j:duplicateLayer,i:()=>applyPreset('invert'),d:deselect,a:selectAll,c:copySelection,e:mergeDown,'0':fitZoom,'1':()=>setZoom(1),'+':()=>setZoom(state.zoom*1.25),'=':()=>setZoom(state.zoom*1.25),'-':()=>setZoom(state.zoom/1.25)};
       if(combo[key]){e.preventDefault();combo[key]();}return;
     }
     if(e.code==='Space'){e.preventDefault();panHolding=true;overlay.style.cursor='grab';return;}
@@ -2402,7 +2513,7 @@ const init = async () => {
   if(lastView==='editor'){
     const recovered=await loadActiveSession();
     if(recovered?.project){
-      try{await openProjectData(recovered.project,recovered.name||'Recovered document');showEditor();}
+      try{await openProjectData(recovered.project,recovered.name||'Recovered document');state.libraryId=recovered.libraryId||null;showEditor();}
       catch(err){console.warn('Could not restore active PixelForge document',err);createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();}
     }else{createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();}
   }else{
