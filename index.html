@@ -151,6 +151,16 @@
 @media(max-height:690px){.newdoc-modal .nd-workspace{height:calc(100dvh - 155px);max-height:calc(100dvh - 155px)}.newdoc-modal .nd-actions{bottom:-8px}}
 
 
+/* Cosmetic cleanup requested: simplify chrome and right inspector */
+.topbar .offline-label,
+.topbar #headerNew,
+.topbar #headerResize,
+.topbar #headerOpen,
+.topbar #headerExport{display:none!important}
+.optionsbar{display:none!important}
+.navigator-section,
+.history-section{display:none!important}
+
 /* PixelForge Home / project browser */
 .brand{cursor:pointer}
 .home-screen{flex:1;min-height:0;display:grid;grid-template-columns:230px minmax(0,1fr);background:#191a20;color:#ececf2;overflow:hidden}
@@ -2061,7 +2071,7 @@ const menuDefinitions = {
   select:[['Select All','Ctrl+A',selectAll],['Deselect','Ctrl+D',deselect],['---'],['Rectangular Marquee','M',()=>setTool('marquee')],['Clear Selected Pixels','Shift+Delete',clearSelected]],
   filter:[['Blur · Soft','',()=>applyPreset('soften')],['Sharpen','',()=>applyPreset('sharpen')],['Grayscale','',()=>applyPreset('grayscale')],['Sepia','',()=>applyPreset('sepia')],['Invert','',()=>applyPreset('invert')]],
   view:[['Fit to Screen','Ctrl+0',fitZoom],['Actual Pixels (100%)','Ctrl+1',()=>{state.panX=state.panY=0;setZoom(1);}],['Zoom In','Ctrl++',()=>setZoom(state.zoom*1.25)],['Zoom Out','Ctrl+-',()=>setZoom(state.zoom/1.25)],['Show / Hide Grid','',()=>{gridEnabled=!gridEnabled;requestRender();}]],
-  window:[['Navigator Panel','',()=>toggleInspector('.navigator-section')],['Color Panel','',()=>toggleInspector('.color-section')],['Adjustments Panel','',()=>toggleInspector('.adjustments-section')],['Layers Panel','',()=>toggleInspector('.layer-section')],['History Panel','',()=>toggleInspector('.history-section')],['Show All Panels','',()=>$$('.inspector-section').forEach(x=>x.classList.remove('panel-collapsed'))]],
+  window:[['Color Panel','',()=>toggleInspector('.color-section')],['Adjustments Panel','',()=>toggleInspector('.adjustments-section')],['Layers Panel','',()=>toggleInspector('.layer-section')],['Show All Panels','',()=>$$('.inspector-section:not(.navigator-section):not(.history-section)').forEach(x=>x.classList.remove('panel-collapsed'))]],
   help:[['Keyboard shortcuts…','?',helpDialog],['Document information…','',documentInfoDialog],['About PixelForge Studio','',()=>openModal(`<div>${modalHead('PixelForge Studio','Local raster editor · Extended workspace')}<p>PSD raster-layer support and Photoshop-inspired editing menus. This is an independent application, not Adobe Photoshop. Some Photoshop capabilities, including smart objects, full adjustment layers, and CMYK, are not supported.</p><div class="modal-actions"><button class="confirm" data-close>Close</button></div></div>`)]]
 };
 const toggleInspector = selector=>{const p=$(selector);if(p)p.classList.toggle('panel-collapsed');};
