@@ -1,7 +1,5 @@
-// PixelForge Cloud connection. Public Supabase URL and publishable key only.
-// These values are safe to embed in a public client when RLS policies are enabled.
-// Never put the service_role key, database password, or Google OAuth secret here.
+// Public browser configuration only. Never add service_role keys or OAuth secrets.
 window.PIXELFORGE_CLOUD_CONFIG = {
-  url: '',
-  publishableKey: ''
+  url: 'https://mqxstxdhggpoyichmisd.supabase.co',
+  publishableKey: 'sb_publishable_sijDYy09G1FUGGlLXfUjZw_bsZmTEph'
 };
