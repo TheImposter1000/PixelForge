@@ -2188,7 +2188,7 @@ const openRasterDocument = async file => {
   }catch(err){console.error('Image open failed',err);toast(`Could not open image: ${err.message}`);}
   finally{if(url)URL.revokeObjectURL(url);}
 };
-const isPlaceableImage = file => !!file&&(file.type?.startsWith('image/')||/\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(file.name||''));
+const isPlaceableImage = file => !!file&&!/\.(psd|psb|pforge|json)$/i.test(file.name||'')&&(file.type?.startsWith('image/')||/\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(file.name||''));
 const importImage = async (file,dropPoint=null) => {
   if(!isPlaceableImage(file)){toast('Choose a supported image file to place as a layer');return false;}
   let url;
