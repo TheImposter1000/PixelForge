@@ -361,7 +361,7 @@
             <canvas id="paintCanvas" width="1280" height="800"></canvas>
             <canvas id="overlayCanvas" width="1280" height="800"></canvas>
           </div>
-          <div class="drop-overlay" id="dropOverlay"><svg><use href="#i-image"/></svg><strong>Drop to import</strong><span>Images, PSD, or PixelForge project</span></div>
+          <div class="drop-overlay" id="dropOverlay"><svg><use href="#i-image"/></svg><strong>Drop to import</strong><span>Place pictures as new layers · keep current document</span></div>
           <div class="viewport-shortcut"><kbd>Space</kbd> drag to pan <span>·</span> <kbd>Ctrl</kbd> scroll to zoom</div>
         </div>
       </main>
@@ -2123,16 +2123,26 @@ const openRasterDocument = async file => {
   }catch(err){console.error('Image open failed',err);toast(`Could not open image: ${err.message}`);}
   finally{if(url)URL.revokeObjectURL(url);}
 };
-const importImage = async file => {
-  if(!file?.type?.startsWith('image/')){toast('Choose an image file');return;}
+const isPlaceableImage = file => !!file&&(file.type?.startsWith('image/')||/\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(file.name||''));
+const importImage = async (file,dropPoint=null) => {
+  if(!isPlaceableImage(file)){toast('Choose a supported image file to place as a layer');return false;}
+  let url;
   try{
-    const url=URL.createObjectURL(file),img=await loadCanvasImage(url);URL.revokeObjectURL(url);
+    url=URL.createObjectURL(file);
+    const img=await loadCanvasImage(url);
     const layer=addLayer(file.name.replace(/\.[^.]*$/,'').slice(0,70),{},false);
-    const t=layer.canvas.getContext('2d');const scale=Math.min(1,(state.width*.9)/img.width,(state.height*.9)/img.height);
+    const t=layer.canvas.getContext('2d');
+    const scale=Math.min(1,(state.width*.9)/img.width,(state.height*.9)/img.height);
     const dw=img.width*scale,dh=img.height*scale;
-    t.drawImage(img,(state.width-dw)/2,(state.height-dh)/2,dw,dh);
-    determineBounds(layer);record('Import image');setTool('move');toast(`${file.name} added as a layer`);
-  }catch(err){console.error(err);toast('Could not import this image');}
+    const center=dropPoint||{x:state.width/2,y:state.height/2};
+    const x=Math.max(0,Math.min(state.width-dw,center.x-dw/2));
+    const y=Math.max(0,Math.min(state.height-dh,center.y-dh/2));
+    t.drawImage(img,Math.round(x),Math.round(y),dw,dh);
+    determineBounds(layer);record('Place image as layer');setTool('move');
+    toast(`${file.name} placed as a new layer`);
+    return true;
+  }catch(err){console.error('Place image failed',err);toast('Could not place '+(file.name||'image'));return false;}
+  finally{if(url)URL.revokeObjectURL(url);}
 };
 const helpDialog = () => {
   const shortcuts=[['V','Move layer'],['M','Rectangle selection'],['B','Brush'],['E','Eraser'],['G','Paint bucket'],['T','Text'],['U','Rectangle'],['C','Crop'],['H','Hand'],['Z','Zoom'],['Ctrl + Z','Undo'],['Ctrl + Shift + Z','Redo'],['Ctrl + D','Deselect'],['Ctrl + C / V','Copy / paste'],['Ctrl + S','Save current document'],['Ctrl + Shift + S','Save As'],['Space + drag','Pan canvas'],['Ctrl + scroll','Zoom canvas'],['Shift + click layer','Select a layer range'],['Ctrl/Cmd + click layer','Toggle layers in multi-selection'],['Delete','Delete all highlighted layers / folders'],['Shift + corner drag','Resize proportionally'],['Alt + corner drag','Resize proportionally from center'],['Shift + Delete','Clear selected pixels'],['Ctrl + G','Group selected layer'],['Ctrl + Alt + G','Clipping mask'],['Enter','Apply crop'],['Arrows','Nudge selected layer(s)']];
@@ -2514,12 +2524,44 @@ const setupUI = () => {
   $('#openInput').addEventListener('change',async e=>{if(e.target.files[0])await openAnyFile(e.target.files[0]);e.target.value='';});
   $('#psdInput').addEventListener('change',async e=>{if(e.target.files[0])await openPSDFile(e.target.files[0]);e.target.value='';});
   modalBg.addEventListener('click',e=>{if(e.target===modalBg)closeModal();});
-  viewport.addEventListener('dragenter',e=>{if(!e.dataTransfer?.types?.includes('Files'))return;e.preventDefault();dragCounter++;$('#dropOverlay').classList.add('visible');});
-  viewport.addEventListener('dragover',e=>{if(!e.dataTransfer?.types?.includes('Files'))return;e.preventDefault();e.dataTransfer.dropEffect='copy';});
-  viewport.addEventListener('dragleave',e=>{e.preventDefault();dragCounter=Math.max(0,dragCounter-1);if(!dragCounter)$('#dropOverlay').classList.remove('visible');});
-  viewport.addEventListener('drop',async e=>{
-    e.preventDefault();dragCounter=0;$('#dropOverlay').classList.remove('visible');
-    const files=[...(e.dataTransfer.files||[])];for(const f of files)await openAnyFile(f);
+  // Files dropped into an existing editor are placed as layers, never opened as replacement documents.
+  const isFileDrag=e=>Array.from(e.dataTransfer?.types||[]).includes('Files');
+  const clearDropOverlay=()=>{dragCounter=0;$('#dropOverlay').classList.remove('visible');};
+  document.addEventListener('dragenter',e=>{
+    if(!isFileDrag(e))return;
+    e.preventDefault();dragCounter++;
+    if(!appShell.classList.contains('home-mode')&&!modalOpen)$('#dropOverlay').classList.add('visible');
+  });
+  document.addEventListener('dragover',e=>{
+    if(!isFileDrag(e))return;
+    e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='copy';
+  });
+  document.addEventListener('dragleave',e=>{
+    if(!isFileDrag(e))return;
+    dragCounter=Math.max(0,dragCounter-1);
+    if(!dragCounter)$('#dropOverlay').classList.remove('visible');
+  });
+  window.addEventListener('blur',clearDropOverlay);
+  document.addEventListener('drop',async e=>{
+    if(!isFileDrag(e))return;
+    e.preventDefault();clearDropOverlay();
+    if(modalOpen){toast('Close the open dialog before dropping images');return;}
+    const files=Array.from(e.dataTransfer?.files||[]);
+    if(!files.length)return;
+    if(appShell.classList.contains('home-mode')){
+      await openAnyFile(files[0]);
+      if(!appShell.classList.contains('home-mode'))
+        for(const file of files.slice(1))if(isPlaceableImage(file))await importImage(file);
+      return;
+    }
+    const insideViewport=viewport.contains(e.target);
+    const center=insideViewport?docPoint(e):null;
+    let placed=0;
+    for(const file of files){
+      if(isPlaceableImage(file)){
+        if(await importImage(file,center?{x:center.x+placed*14,y:center.y+placed*14}:null))placed++;
+      }else toast('Use File > Open to open project or PSD documents; dropped images are placed as layers');
+    }
   });
   setColor(state.color);setTool(state.tool);
 };
