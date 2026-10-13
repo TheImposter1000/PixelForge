@@ -152,7 +152,15 @@
 
 
 /* Photoshop-inspired Save workflows */
-.save-workflow{min-width:min(455px,calc(100vw - 50px))}
+.modal.save-modal{width:min(640px,calc(100vw - 36px));max-width:min(640px,calc(100vw - 36px));min-width:0;max-height:calc(100dvh - 36px);overflow-y:auto;overflow-x:hidden;padding:24px}
+.save-workflow{min-width:0;width:100%;max-width:100%;overflow-wrap:anywhere}
+.save-workflow *{box-sizing:border-box}
+.save-workflow .field-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;min-width:0}
+.save-workflow .field-row>label{min-width:0;max-width:100%}
+.save-workflow input,.save-workflow select{width:100%;max-width:100%;min-width:0}
+.save-workflow .modal-head{min-width:0;max-width:100%}
+.save-workflow .save-meta{min-width:0}
+@media(max-width:540px){.modal.save-modal{padding:18px}.save-workflow .field-row{grid-template-columns:minmax(0,1fr)}.save-workflow .save-meta{grid-template-columns:minmax(0,1fr)}}
 .save-workflow .save-meta{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 13px;border:1px solid #393b48;background:#22242e;border-radius:8px;margin:12px 0}
 .save-workflow .save-meta div{display:flex;flex-direction:column;gap:3px}
 .save-workflow .save-meta strong{color:#dfe0ed;font-size:12px}
@@ -1426,9 +1434,10 @@ const applyPreset = name => {
   }
   l.canvas=c;l.type='raster';l.textConfig=null;determineBounds(l);resetAdjustments(false);record(`Filter · ${name}`);toast(`${name[0].toUpperCase()+name.slice(1)} filter applied`);
 };
-const closeModal = () => {currentAdjustmentPreview=null;requestRender();$('#modalContent').classList.remove('newdoc-modal');modalBg.classList.add('hidden');$('#modalContent').innerHTML='';modalOpen=false;};
+const closeModal = () => {currentAdjustmentPreview=null;requestRender();$('#modalContent').classList.remove('newdoc-modal','save-modal');modalBg.classList.add('hidden');$('#modalContent').innerHTML='';modalOpen=false;};
 const openModal = (inner,onSubmit) => {
   modalOpen=true;modalBg.classList.remove('hidden');
+  $('#modalContent').classList.remove('save-modal');
   $('#modalContent').innerHTML=inner;
   $('#modalContent').querySelectorAll('[data-close]').forEach(x=>x.addEventListener('click',closeModal));
   const form=$('#modalContent form');
@@ -1861,18 +1870,19 @@ const saveWorkflowDialog = (mode='as') => {
   const html='<form class="save-workflow">'+modalHead(dialogTitle,description)
     +'<label>File name<input name="name" value="'+escapeHTML(initialName)+'" maxlength="90" autocomplete="off" required></label>'
     +'<div class="field-row"><label>Save to<select name="destination"><option value="library">PixelForge Library</option><option value="computer">This computer (download)</option></select></label>'
-    +'<label>Format<select name="format"><option value="pforge">PixelForge Project (.pforge)</option><option value="psd">Photoshop (.psd)</option>'
-    +'<option value="png">PNG image (.png)</option><option value="jpeg">JPEG image (.jpg)</option><option value="webp">WebP image (.webp)</option></select></label></div>'
+    +'<label>Format<select name="format"><optgroup label="Editable documents"><option value="pforge">PixelForge Project (.pforge)</option><option value="psd">Photoshop (.psd)</option></optgroup>'
+    +'<optgroup label="Image formats"><option value="png">PNG (.png)</option><option value="jpeg">JPEG (.jpg)</option><option value="webp">WebP (.webp)</option><option value="gif">GIF, single frame (.gif)</option><option value="bmp">BMP (.bmp)</option><option value="tiff">TIFF (.tif)</option><option value="tga">Targa (.tga)</option><option value="pdf">PDF, rasterized (.pdf)</option></optgroup></select></label></div>'
     +'<div class="save-meta"><div><span>DOCUMENT SIZE</span><strong>'+state.width.toLocaleString()+' × '+state.height.toLocaleString()+' px</strong></div>'
     +'<div><span>LAYERS</span><strong>'+state.layers.length+' layers</strong></div></div>'
     +'<div class="save-note" id="saveWorkflowNote" aria-live="polite"></div>'
+    +'<div class="save-options"><label id="saveTransparencyRow" class="save-quality-hidden">Transparency<select name="transparency"><option value="yes">Preserve transparency</option><option value="no">Flatten onto white</option></select></label></div>'
     +'<label id="saveQualityRow" class="save-quality-hidden">Image quality (JPEG / WebP)<input name="quality" type="number" min="10" max="100" value="92"></label>'
     +'<div class="modal-actions"><button type="button" data-close>Cancel</button><button type="submit" class="confirm" id="saveWorkflowSubmit">'+(isCopy?'Save Copy':'Save')+'</button></div></form>';
   openModal(html,async data=>{
     const form=$('#modalContent form'),button=$('#saveWorkflowSubmit');
     if(!form||!button||button.disabled)return;
     const name=cleanSaveName(data.get('name'));
-    const destination=String(data.get('destination')),format=String(data.get('format')),quality=Number(data.get('quality'))||92;
+    const destination=String(data.get('destination')),format=String(data.get('format')),quality=Number(data.get('quality'))||92,transparency=data.get('transparency')!=='no';
     if(!name){toast('Enter a document name');return;}
     if(destination==='library'&&format!=='pforge'){toast('The PixelForge Library stores native .pforge files only');return;}
     button.disabled=true;button.textContent='Saving…';
@@ -1881,7 +1891,7 @@ const saveWorkflowDialog = (mode='as') => {
         const saved=await saveProjectToLibrary({name,newFile:true,copy:isCopy});
         if(!saved){button.disabled=false;button.textContent=isCopy?'Save Copy':'Save';return;}
       }else{
-        await downloadNamedSave(format,name,quality);
+        await downloadNamedSave(format,name,quality,transparency);
         if(!isCopy&&format==='pforge'){
           state.name=name;state.libraryId=null;setDirty(false);
           document.title=state.name+' — PixelForge Studio';updateStatus();scheduleActiveSessionSave();
@@ -1894,15 +1904,26 @@ const saveWorkflowDialog = (mode='as') => {
       button.disabled=false;button.textContent=isCopy?'Save Copy':'Save';
     }
   });
+  $('#modalContent').classList.add('save-modal');
   const form=$('#modalContent form'),destination=form.elements.namedItem('destination');
   const format=form.elements.namedItem('format'),qualityRow=$('#saveQualityRow'),note=$('#saveWorkflowNote');
   const refresh=()=>{
     const type=format.value,local=destination.value==='library';
     qualityRow.classList.toggle('save-quality-hidden',!['jpeg','webp'].includes(type));
-    if(local)note.textContent='Editable PixelForge project. Preserves layers, folders and masks. This library is stored in this browser, not the cloud. Download a .pforge backup for safety.';
-    else if(type==='pforge')note.textContent='Editable project retaining PixelForge layers and masks. Your browser downloads a .pforge file rather than automatically overwriting an existing download.';
-    else if(type==='psd')note.textContent='Layered Photoshop PSD. Folder structure, masks and clipping may be rasterized. Some native Photoshop properties cannot be preserved.';
-    else note.textContent='Flattened image only. The saved image will not have editable layers, but the open PixelForge document remains fully editable.';
+    $('#saveTransparencyRow').classList.toggle('save-quality-hidden',!['png','webp','gif','tiff','tga'].includes(type));
+    const notes={
+      pforge:local?'Editable PixelForge project. Layers, groups and masks are stored in this browser. Download .pforge backups; this is not cloud storage.':'Native editable PixelForge project retaining layers and masks. Your browser downloads a new file, not an in-place overwrite.',
+      psd:'Layered RGB 8-bit Photoshop PSD. Folders, masks and clipping can be rasterized. Some Photoshop-specific features are not preserved.',
+      png:'Lossless PNG image with optional transparency. Flattened image, not editable layers.',
+      jpeg:'JPEG photograph with adjustable quality, no transparency and no layers.',
+      webp:'WebP single-frame image with adjustable quality and optional transparency.',
+      gif:'Single-frame GIF with a 256-color palette and optional binary transparency. Does not create animations. Maximum 6 megapixels.',
+      bmp:'24-bit BMP image. Transparency flattened to white. Maximum 16 megapixels.',
+      tiff:'Uncompressed 8-bit RGBA TIFF. Supports transparency but not PixelForge layers. Maximum 16 megapixels.',
+      tga:'32-bit Targa image with optional transparency. Maximum 16 megapixels.',
+      pdf:'One-page flattened PDF at document print resolution. Not an editable Photoshop PDF. Maximum 16 megapixels.'
+    };
+    note.textContent=notes[type]||'Choose a format.';
   };
   destination.addEventListener('change',()=>{
     if(destination.value==='library'&&format.value!=='pforge')format.value='pforge';
