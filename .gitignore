@@ -1,0 +1,7 @@
+node_modules/
+dist/
+desktop/vendor/
+*.log
+.env
+.env.*
+!README.md
