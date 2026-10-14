@@ -3358,9 +3358,9 @@ const setupUI = () => {
     const files=Array.from(e.dataTransfer?.files||[]);
     if(!files.length)return;
     if(appShell.classList.contains('home-mode')){
-      await openAnyFile(files[0]);
-      if(!appShell.classList.contains('home-mode'))
-        for(const file of files.slice(1))if(isPlaceableImage(file))await importImage(file);
+      // Files dropped on Home are opened as separate document tabs.
+      // Drops inside an existing workspace continue to place new layers.
+      for(const file of files)await openAnyFile(file);
       return;
     }
     let placed=0;
