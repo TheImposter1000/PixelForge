@@ -837,7 +837,7 @@ const updateViewControls=()=>{
   if(gridButton){
     gridButton.style.color=gridEnabled?'#b5a1ff':'';
     gridButton.setAttribute('aria-pressed',String(gridEnabled));
-    gridButton.title=(gridEnabled?'Hide':'Show')+' grid (Ctrl + \' )';
+    gridButton.title=(gridEnabled?'Hide':'Show')+' grid (Ctrl+apostrophe)';
   }
   horizontalRuler.style.display=rulersEnabled?'block':'none';
   verticalRuler.style.display=rulersEnabled?'block':'none';
@@ -885,6 +885,8 @@ const drawRulers=()=>{
   ];
   for(const ruler of rulers){
     const {el,width,height,origin,horizontal}=ruler,ctx=el.getContext('2d');
+    // Canvas backing pixels must not affect its CSS layout at HiDPI screen scaling.
+    el.style.width=width+'px';el.style.height=height+'px';
     if(el.width!==Math.round(width*dpr)||el.height!==Math.round(height*dpr)){
       el.width=Math.round(width*dpr);el.height=Math.round(height*dpr);
     }
