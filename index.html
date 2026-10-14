@@ -1884,27 +1884,107 @@ function encodeStaticGif(image,{colors=256,dither=false,alphaThreshold=128}={}){
   const w=image.width,h=image.height,pixels=image.data;
   if(w*h>6000000||w>65535||h>65535)throw new Error('GIF export supports up to 6 megapixels');
   const tableSize=[16,32,64,128,256].includes(Number(colors))?Number(colors):256;
-  const tableBits=Math.log2(tableSize),redBits=Math.ceil(tableBits/3);
-  const greenBits=Math.ceil((tableBits-redBits)/2),blueBits=tableBits-redBits-greenBits;
-  const rMax=(1<<redBits)-1,gMax=(1<<greenBits)-1,bMax=(1<<blueBits)-1;
-  const palette=new Uint8Array(tableSize*3),indexed=new Uint8Array(w*h);
-  for(let code=0;code<tableSize;code++){
-    const rr=code>>(greenBits+blueBits),gg=(code>>blueBits)&gMax,bb=code&bMax;
-    palette[code*3]=Math.round(rr*255/rMax);
-    palette[code*3+1]=Math.round(gg*255/gMax);
-    palette[code*3+2]=Math.round(bb*255/bMax);
-  }
-  const transparentIndex=tableSize-1,bayer=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
-  let transparent=false;
+  const tableBits=Math.log2(tableSize),transparentIndex=tableSize-1;
   const threshold=Math.max(0,Math.min(255,Number(alphaThreshold)||0));
+  const counts=new Uint32Array(32768),sumR=new Uint32Array(32768),sumG=new Uint32Array(32768),sumB=new Uint32Array(32768);
+  let transparent=false;
+  // A 5-bit/channel histogram retains the image's actual hues instead of
+  // forcing photographs through a 3/3/2 fixed RGB grid.
+  for(let i=0;i<pixels.length;i+=4){
+    if(pixels[i+3]<threshold){transparent=true;continue;}
+    const r=pixels[i],g=pixels[i+1],b=pixels[i+2],bucket=((r>>>3)<<10)|((g>>>3)<<5)|(b>>>3);
+    counts[bucket]++;sumR[bucket]+=r;sumG[bucket]+=g;sumB[bucket]+=b;
+  }
+  const entries=[];
+  for(let code=0;code<32768;code++)if(counts[code]){
+    const count=counts[code];
+    entries.push({r:sumR[code]/count,g:sumG[code]/count,b:sumB[code]/count,count,
+      red:sumR[code],green:sumG[code],blue:sumB[code]});
+  }
+  const maxColors=tableSize-(transparent?1:0);
+  const stats=items=>{
+    let minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0,total=0;
+    let red=0,green=0,blue=0;
+    for(const p of items){
+      minR=Math.min(minR,p.r);maxR=Math.max(maxR,p.r);
+      minG=Math.min(minG,p.g);maxG=Math.max(maxG,p.g);
+      minB=Math.min(minB,p.b);maxB=Math.max(maxB,p.b);
+      total+=p.count;red+=p.red;green+=p.green;blue+=p.blue;
+    }
+    const ranges=[(maxR-minR)*1.06,(maxG-minG)*1.17,(maxB-minB)*.92];
+    const channel=ranges.indexOf(Math.max(...ranges));
+    return {total,red,green,blue,channel,score:Math.max(...ranges)*Math.sqrt(total)};
+  };
+  // Population-weighted median cut: each palette slot adapts to the colors in
+  // this picture, retaining subtle skin, hair, and background tones.
+  const boxes=entries.length?[{items:entries,detail:stats(entries)}]:[];
+  while(boxes.length<maxColors){
+    let pick=-1,priority=-1;
+    for(let i=0;i<boxes.length;i++){
+      if(boxes[i].items.length>1&&boxes[i].detail.score>priority){
+        priority=boxes[i].detail.score;pick=i;
+      }
+    }
+    if(pick<0)break;
+    const box=boxes[pick],channel=['r','g','b'][box.detail.channel];
+    box.items.sort((a,b)=>a[channel]-b[channel]);
+    let sum=0,cut=0;
+    while(cut<box.items.length-1){
+      sum+=box.items[cut].count;cut++;
+      if(sum>=box.detail.total/2)break;
+    }
+    const left=box.items.slice(0,cut),right=box.items.slice(cut);
+    boxes.splice(pick,1,{items:left,detail:stats(left)},{items:right,detail:stats(right)});
+  }
+  const palette=new Uint8Array(tableSize*3);
+  const paletteCount=boxes.length||1;
+  for(let i=0;i<boxes.length;i++){
+    const {total,red,green,blue}=boxes[i].detail;
+    palette[3*i]=Math.round(red/total);
+    palette[3*i+1]=Math.round(green/total);
+    palette[3*i+2]=Math.round(blue/total);
+  }
+  // Two inexpensive color-weighted k-means passes refine the median-cut colors.
+  const nearest=(r,g,b)=>{
+    let best=0,bestDistance=Infinity;
+    for(let j=0;j<paletteCount;j++){
+      const k=3*j,dr=r-palette[k],dg=g-palette[k+1],db=b-palette[k+2];
+      const distance=3*dr*dr+5*dg*dg+2*db*db;
+      if(distance<bestDistance){bestDistance=distance;best=j;}
+    }
+    return best;
+  };
+  for(let pass=0;pass<2&&paletteCount>1;pass++){
+    const populations=new Float64Array(paletteCount);
+    const red=new Float64Array(paletteCount),green=new Float64Array(paletteCount),blue=new Float64Array(paletteCount);
+    for(const p of entries){
+      const j=nearest(p.r,p.g,p.b);
+      populations[j]+=p.count;red[j]+=p.red;green[j]+=p.green;blue[j]+=p.blue;
+    }
+    for(let j=0;j<paletteCount;j++)if(populations[j]){
+      palette[3*j]=Math.round(red[j]/populations[j]);
+      palette[3*j+1]=Math.round(green[j]/populations[j]);
+      palette[3*j+2]=Math.round(blue[j]/populations[j]);
+    }
+  }
+  const indexed=new Uint8Array(w*h),cache=new Int16Array(32768);
+  cache.fill(-1);
+  const getIndex=(r,g,b)=>{
+    const key=((r>>>3)<<10)|((g>>>3)<<5)|(b>>>3);
+    let j=cache[key];
+    if(j<0){
+      j=nearest(r,g,b);cache[key]=j;
+    }
+    return j;
+  };
+  const bayer=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+  const channel=value=>Math.max(0,Math.min(255,Math.round(value)));
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
     const j=y*w+x,i=j*4;
-    if(pixels[i+3]<threshold){indexed[j]=transparentIndex;transparent=true;continue;}
-    const shift=dither?(bayer[(y&3)*4+(x&3)]-7.5)/16:0;
-    const quant=(c,levels)=>Math.max(0,Math.min(levels,Math.round((Math.max(0,Math.min(255,c+shift*255/levels)))*levels/255)));
-    const r=quant(pixels[i],rMax),g=quant(pixels[i+1],gMax),b=quant(pixels[i+2],bMax);
-    const index=(r<<(greenBits+blueBits))|(g<<blueBits)|b;
-    indexed[j]=index===transparentIndex?transparentIndex-1:index;
+    if(pixels[i+3]<threshold){indexed[j]=transparentIndex;continue;}
+    // Subtle ordered dithering; disable it for the cleanest photographic gradients.
+    const shift=dither?(bayer[(y&3)*4+(x&3)]-7.5)*1.25:0;
+    indexed[j]=getIndex(channel(pixels[i]+shift),channel(pixels[i+1]+shift),channel(pixels[i+2]+shift));
   }
   const bytes=[],str=value=>{for(let i=0;i<value.length;i++)bytes.push(value.charCodeAt(i));};
   const short=n=>{bytes.push(n&255,(n>>>8)&255);};
