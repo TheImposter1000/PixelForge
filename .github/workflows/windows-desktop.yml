@@ -1,0 +1,59 @@
+name: Windows Desktop EXE
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'cloud-config.js'
+      - 'desktop/**'
+      - 'package.json'
+      - '.github/workflows/windows-desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out PixelForge
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Electron dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build Windows installer
+        run: npm run build:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: PixelForge-Windows-Installer
+          path: dist/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish public preview download
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-preview
+          name: PixelForge Studio — Windows Preview
+          prerelease: true
+          make_latest: false
+          files: dist/*.exe
+          body: |
+            Install PixelForge Studio for Windows 10/11 with the EXE below.
+            This preview installer is not code signed and Windows SmartScreen may display a warning.
+            Offline editing is supported. Online account features require a connection.
+            Google desktop sign-in also requires pixelforge://auth/callback in Supabase Redirect URLs.
