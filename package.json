@@ -1,0 +1,61 @@
+{
+  "name": "pixelforge-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PixelForge Studio native Windows desktop image editor",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "desktop:prepare": "node desktop/copy-vendor.cjs",
+    "build:win": "npm run desktop:prepare && electron-builder --win nsis --x64 --publish never",
+    "pack:win": "npm run desktop:prepare && electron-builder --win dir --x64 --publish never"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.75.0",
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.pixelforge.studio",
+    "productName": "PixelForge Studio",
+    "asar": true,
+    "files": [
+      "index.html",
+      "cloud-config.js",
+      "desktop/main.cjs",
+      "desktop/preload.cjs",
+      "desktop/vendor/supabase.min.js",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "PixelForge-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PixelForge Studio"
+    },
+    "protocols": [
+      {
+        "name": "PixelForge desktop sign-in",
+        "schemes": [
+          "pixelforge"
+        ]
+      }
+    ],
+    "publish": null
+  }
+}
