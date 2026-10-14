@@ -2866,12 +2866,39 @@ const cloudIdentity=()=>cloudUser?.id||null;
 const loadCloudSdk=()=>new Promise((resolve,reject)=>{
   if(window.supabase?.createClient){resolve(window.supabase);return;}
   const tag=document.createElement('script');
-  tag.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+  tag.src=window.pixelforgeDesktop?.isDesktop
+    ?'desktop/vendor/supabase.min.js'
+    :'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
   tag.async=true;
   tag.onload=()=>window.supabase?.createClient?resolve(window.supabase):reject(new Error('Cloud authentication SDK is unavailable'));
   tag.onerror=()=>reject(new Error('Could not load cloud authentication SDK'));
   document.head.append(tag);
 });
+const completeDesktopOAuth=async link=>{
+  if(!window.pixelforgeDesktop?.isDesktop||!cloudClient||typeof link!=='string')return;
+  try{
+    const url=new URL(link);
+    if(url.protocol!=='pixelforge:'||url.hostname!=='auth'||url.pathname!=='/callback')return;
+    const fragments=new URLSearchParams(url.hash.slice(1)),query=url.searchParams;
+    const providerError=fragments.get('error_description')||query.get('error_description');
+    if(providerError)throw new Error(providerError);
+    const token=fragments.get('access_token'),refresh=fragments.get('refresh_token');
+    let result;
+    if(token&&refresh)result=await cloudClient.auth.setSession({access_token:token,refresh_token:refresh});
+    else if(query.get('code'))result=await cloudClient.auth.exchangeCodeForSession(query.get('code'));
+    else throw new Error('Google did not return a valid sign-in session');
+    if(result.error)throw result.error;
+    cloudUser=result.data?.user||result.data?.session?.user||null;
+    if(!cloudUser)throw new Error('Google sign-in did not return an account');
+    if(modalOpen)closeModal();
+    updateAccountUI();
+    if(appShell.classList.contains('home-mode'))renderCloudProjects();
+    toast('Signed in to PixelForge Desktop');
+  }catch(error){
+    console.error('Desktop Google sign-in failed',String(error?.message||'Unknown error'));
+    toast('Google sign-in failed: '+String(error?.message||'Unknown error').slice(0,170));
+  }
+};
 const updateAccountUI=()=>{
   const account=$('#homeAccountStatus'),button=$('#homeAccountButton'),signOut=$('#homeSignOut');
   if(!account||!button||!signOut)return;
@@ -2890,8 +2917,11 @@ const initCloud=async()=>{
   try{
     const sdk=await loadCloudSdk(),cfg=cloudSettings();
     cloudClient=sdk.createClient(cfg.url,cfg.publishableKey,{
-      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:!window.pixelforgeDesktop?.isDesktop}
     });
+    if(window.pixelforgeDesktop?.isDesktop){
+      window.pixelforgeDesktop.onAuthCallback(link=>{completeDesktopOAuth(link);});
+    }
     cloudClient.auth.onAuthStateChange((event,session)=>{
       const prior=cloudUser?.id||null;
       cloudUser=session?.user||null;
@@ -2998,11 +3028,19 @@ const openAccountDialog=()=>{
       button.textContent='Opening Google…';
       const {data,error}=await cloudClient.auth.signInWithOAuth({
         provider:'google',
-        options:{redirectTo:location.origin+location.pathname,skipBrowserRedirect:true}
+        options:{
+          redirectTo:window.pixelforgeDesktop?.isDesktop
+            ?'pixelforge://auth/callback'
+            :location.origin+location.pathname,
+          skipBrowserRedirect:true
+        }
       });
       if(error)throw error;
       if(!data?.url)throw new Error('Google did not return a sign-in URL');
-      window.location.assign(data.url);
+      if(window.pixelforgeDesktop?.isDesktop){
+        await window.pixelforgeDesktop.openOAuth(data.url);
+        toast('Finish Google sign-in in your default browser to return to PixelForge Desktop.');
+      }else window.location.assign(data.url);
     }catch(error){
       const message=accountErrorText(error);
       if(/provider.*not.enabled|unsupported.provider|invalid.*provider|oauth.provider/i.test(message)){
@@ -3026,7 +3064,9 @@ const openAccountDialog=()=>{
     submit.disabled=true;$('#authError').textContent='';
     try{
       const {data,error}=mode==='signup'
-        ?await cloudClient.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}})
+        ?await cloudClient.auth.signUp({email,password,options:{emailRedirectTo:window.pixelforgeDesktop?.isDesktop
+          ?'https://theimposter1000.github.io/PixelForge/'
+          :location.origin+location.pathname}})
         :await cloudClient.auth.signInWithPassword({email,password});
       if(error)throw error;
       if(mode==='signup'&&!data.session){
