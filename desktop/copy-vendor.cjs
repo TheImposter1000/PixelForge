@@ -2,12 +2,23 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const esbuild = require('esbuild');
 
-const source = path.resolve(__dirname, '..', 'node_modules', '@supabase', 'supabase-js', 'dist', 'umd', 'supabase.min.js');
 const folder = path.join(__dirname, 'vendor');
-if (!fs.existsSync(source)) {
-  throw new Error('Supabase browser SDK is missing. Run npm install before building.');
+fs.mkdirSync(folder, {recursive: true});
+esbuild.buildSync({
+  entryPoints: ['@supabase/supabase-js'],
+  bundle: true,
+  platform: 'browser',
+  format: 'iife',
+  globalName: 'supabase',
+  target: 'es2020',
+  minify: true,
+  outfile: path.join(folder, 'supabase.min.js'),
+  logLevel: 'warning'
+});
+const output = path.join(folder, 'supabase.min.js');
+if (!fs.existsSync(output) || fs.statSync(output).size < 10000) {
+  throw new Error('Supabase browser SDK bundling failed.');
 }
-fs.mkdirSync(folder, {recursive:true});
-fs.copyFileSync(source, path.join(folder, 'supabase.min.js'));
-console.log('Bundled the browser Supabase SDK for offline desktop startup.');
+console.log('Bundled offline Supabase browser SDK (' + Math.round(fs.statSync(output).size / 1024) + ' KB).');
