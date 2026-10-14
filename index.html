@@ -1909,6 +1909,7 @@ const openAnyFile = async file => {
   return openRasterDocument(file);
 };
 const PF_LIBRARY_DB='PixelForgeLibrary',PF_LIBRARY_STORE='projects',PF_SESSION_ID='__pixelforge_active_session__';
+const PF_TABS_SESSION_ID='__pixelforge_document_tabs__';
 let sessionSaveTimer=null;
 const markWorkspaceView = view => {try{localStorage.setItem('pixelforge:lastView',view);}catch{}};
 
@@ -1929,18 +1930,35 @@ const libraryTransaction = async (mode,work) => {
     tx.onabort=()=>{db.close();reject(tx.error||new Error('Project library operation was cancelled'));};
   });
 };
-const projectDataFromState = () => ({
-  app:'PixelForge Studio',version:4,width:state.width,height:state.height,name:state.name,resolution:state.resolution,activeId:state.activeId,selectedIds:getSelectedLayerIds(),
-  layers:state.layers.map(l=>({id:l.id,name:l.name,visible:l.visible,opacity:l.opacity,blend:l.blend,locked:l.locked,
+const projectDataFromState = (doc=state) => ({
+  app:'PixelForge Studio',version:4,width:doc.width,height:doc.height,name:doc.name,resolution:doc.resolution,activeId:doc.activeId,
+  selectedIds:(doc.selectedIds||[doc.activeId]).filter(id=>doc.layers.some(l=>l.id===id)),
+  layers:doc.layers.map(l=>({id:l.id,name:l.name,visible:l.visible,opacity:l.opacity,blend:l.blend,locked:l.locked,
     x:l.x,y:l.y,scaleX:l.scaleX,scaleY:l.scaleY,type:l.type,textConfig:l.textConfig,
     parentId:l.parentId,expanded:l.expanded,clipToBelow:l.clipToBelow,mask:l.maskCanvas?.toDataURL('image/png')||null,pixels:l.canvas.toDataURL('image/png')}))
 });
 const saveActiveSessionNow = async () => {
-  if(appShell.classList.contains('home-mode')||!state.layers.length)return;
+  if(appShell.classList.contains('home-mode')||!state.layers.length||!documentTabs.length)return;
   try{
-    const recovery={id:PF_SESSION_ID,name:state.name||'Untitled',libraryId:state.libraryId||null,cloudId:state.cloudId||null,cloudOwnerId:state.cloudOwnerId||null,width:state.width,height:state.height,updatedAt:Date.now(),project:projectDataFromState()};
-    await libraryTransaction('readwrite',store=>store.put(recovery));
+    captureCurrentDocumentTab();
+    const recovery={id:PF_SESSION_ID,name:state.name||'Untitled',libraryId:state.libraryId||null,
+      cloudId:state.cloudId||null,cloudOwnerId:state.cloudOwnerId||null,width:state.width,height:state.height,
+      updatedAt:Date.now(),project:projectDataFromState()};
+    // Recover all open tabs (not just the active document) after browser refresh.
+    const tabRecovery={id:PF_TABS_SESSION_ID,updatedAt:Date.now(),
+      activeIndex:documentTabs.findIndex(tab=>tab.id===activeDocumentTabId),
+      tabs:documentTabs.map(tab=>{
+        const doc=tab.doc;
+        return {name:doc.name,libraryId:doc.libraryId||null,cloudId:doc.cloudId||null,
+          cloudOwnerId:doc.cloudOwnerId||null,dirty:tab.dirty,project:projectDataFromState(doc)};
+      })};
+    await libraryTransaction('readwrite',store=>{store.put(recovery);store.put(tabRecovery);});
   }catch(err){console.warn('PixelForge recovery save failed',err);}
+};
+const clearDocumentSession=async()=>{
+  clearTimeout(sessionSaveTimer);
+  try{await libraryTransaction('readwrite',store=>{store.delete(PF_SESSION_ID);store.delete(PF_TABS_SESSION_ID);});}
+  catch(error){console.warn('Could not clear closed document recovery',error);}
 };
 const scheduleActiveSessionSave = () => {
   if(appShell.classList.contains('home-mode'))return;
@@ -1948,6 +1966,28 @@ const scheduleActiveSessionSave = () => {
 };
 const loadActiveSession = async () => {
   try{return await libraryGet(PF_SESSION_ID);}catch(err){console.warn('PixelForge recovery load failed',err);return null;}
+};
+const restoreDocumentTabs=async()=>{
+  let recovery;
+  try{recovery=await libraryGet(PF_TABS_SESSION_ID);}catch{return false;}
+  if(!Array.isArray(recovery?.tabs)||!recovery.tabs.length)return false;
+  const requestedIndex=Number.isInteger(recovery.activeIndex)?recovery.activeIndex:0;
+  let recoveredActiveId=null;
+  for(const [index,entry] of recovery.tabs.slice(0,12).entries()){
+    if(!entry?.project)continue;
+    try{
+      await openProjectData(entry.project,entry.name||'Recovered document');
+      state.libraryId=entry.libraryId||null;
+      state.cloudId=entry.cloudId||null;
+      state.cloudOwnerId=entry.cloudOwnerId||null;
+      setDirty(!!entry.dirty);
+      if(index===requestedIndex)recoveredActiveId=activeDocumentTabId;
+    }catch(error){console.warn('Could not restore tab',index,error);}
+  }
+  if(!documentTabs.length)return false;
+  if(recoveredActiveId&&recoveredActiveId!==activeDocumentTabId)focusDocumentTab(recoveredActiveId);
+  else showEditor();
+  return true;
 };
 const projectThumbnail = () => {
   const source=makeCanvas(),sc=source.getContext('2d');drawLayers(sc,{showPreview:false,background:'#20222b'});
@@ -1961,7 +2001,7 @@ const libraryList = async () => {
   const db=await openLibraryDB();
   return new Promise((resolve,reject)=>{
     const tx=db.transaction(PF_LIBRARY_STORE,'readonly'),req=tx.objectStore(PF_LIBRARY_STORE).getAll();
-    req.onsuccess=()=>resolve((req.result||[]).filter(item=>item.id!==PF_SESSION_ID).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)));
+    req.onsuccess=()=>resolve((req.result||[]).filter(item=>item.id!==PF_SESSION_ID&&item.id!==PF_TABS_SESSION_ID).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)));
     req.onerror=()=>reject(req.error);tx.oncomplete=()=>db.close();
   });
 };
@@ -2075,7 +2115,7 @@ const closeDocumentTab=(id)=>{
       rulerCursor=null;drawInteraction=null;cursorPoint=null;
       resetAdjustmentsUIFromState();setTool(state.tool);showEditor({preserveView:true});
     }else{
-      history=[];historyIndex=-1;dirty=false;showHome();
+      history=[];historyIndex=-1;dirty=false;showHome();clearDocumentSession();
     }
   }
   renderDocumentTabs();
@@ -3475,11 +3515,14 @@ const init = async () => {
   if('ResizeObserver' in window)new ResizeObserver(requestRulerRender).observe(viewport);
   let lastView='home';try{lastView=localStorage.getItem('pixelforge:lastView')||'home';}catch{}
   if(lastView==='editor'){
-    const recovered=await loadActiveSession();
-    if(recovered?.project){
-      try{await openProjectData(recovered.project,recovered.name||'Recovered document');state.libraryId=recovered.libraryId||null;state.cloudId=recovered.cloudId||null;state.cloudOwnerId=recovered.cloudOwnerId||null;showEditor();}
-      catch(err){console.warn('Could not restore active PixelForge document',err);createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();}
-    }else{createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();}
+    const restoredTabs=await restoreDocumentTabs();
+    if(!restoredTabs){
+      const recovered=await loadActiveSession();
+      if(recovered?.project){
+        try{await openProjectData(recovered.project,recovered.name||'Recovered document');state.libraryId=recovered.libraryId||null;state.cloudId=recovered.cloudId||null;state.cloudOwnerId=recovered.cloudOwnerId||null;showEditor();}
+        catch(err){console.warn('Could not restore active PixelForge document',err);createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();}
+      }else{createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();}
+    }
   }else{
     createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();
   }
