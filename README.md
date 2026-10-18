@@ -2,7 +2,7 @@
 
 PixelForge Studio is a Photoshop-inspired image editor for the web and Windows desktop.
 
-Use [PixelForge in your browser](https://theimposter1000.github.io/PixelForge/) or install the [Windows desktop app (.exe)](https://github.com/TheImposter1000/PixelForge/releases/download/desktop-preview/PixelForge-Setup-0.1.0.exe). The latest installer is also listed on the [GitHub desktop releases page](https://github.com/TheImposter1000/PixelForge/releases/tag/desktop-preview).
+Use [PixelForge in your browser](https://theimposter1000.github.io/PixelForge/) or install the [Windows desktop app (.exe)](https://github.com/TheImposter1000/PixelForge/releases/latest). The latest installer is also listed on the [GitHub desktop releases page](https://github.com/TheImposter1000/PixelForge/releases/latest).
 
 ## Development workflow
 
