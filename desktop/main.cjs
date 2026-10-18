@@ -29,7 +29,9 @@ function persistUpdatePreferences() {
   }catch(error){console.warn('Could not save update settings:',error.message);}
 }
 const updateDialog = (options) =>
-  dialog.showMessageBox(mainWindow&&!mainWindow.isDestroyed()?mainWindow:undefined,options);
+  mainWindow&&!mainWindow.isDestroyed()
+    ?dialog.showMessageBox(mainWindow,options)
+    :dialog.showMessageBox(options);
 function checkForDesktopUpdates(manual = false) {
   if(!app.isPackaged || process.platform!=='win32') {
     if(manual)updateDialog({type:'info',title:'PixelForge Updates',message:'Updates are available in installed Windows builds only.'});
@@ -76,8 +78,8 @@ function setupDesktopUpdates() {
       {role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},
       {role:'selectAll'}]},
     {label:'View',submenu:[
-      {role:'reload'},{role:'toggleDevTools',visible:!app.isPackaged},
-      {type:'separator'},{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'}]},
+      {role:'togglefullscreen'},
+      {role:'toggleDevTools',visible:!app.isPackaged}]},
     {label:'Updates',submenu:[
       {label:'Check for Updates…',click:()=>checkForDesktopUpdates(true)},
       {type:'separator'},
