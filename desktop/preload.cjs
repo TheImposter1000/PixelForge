@@ -13,6 +13,17 @@ ipcRenderer.on('pixelforge:auth-callback', (_event, url) => {
 contextBridge.exposeInMainWorld('pixelforgeDesktop', Object.freeze({
   isDesktop: true,
   openOAuth: url => ipcRenderer.invoke('pixelforge:open-oauth', url),
+  openFiles: kind => ipcRenderer.invoke('pixelforge:open-files', kind),
+  onOpenRequest: callback => {
+    if(typeof callback==='function'){
+      ipcRenderer.on('pixelforge:request-open',(_event,kind)=>callback(kind));
+    }
+  },
+  onUpdateReady: callback => {
+    if(typeof callback==='function'){
+      ipcRenderer.on('pixelforge:update-ready',(_event,message)=>callback(message));
+    }
+  },
   onAuthCallback: handler => {
     if (typeof handler !== 'function') return;
     authCallbackHandler = handler;
