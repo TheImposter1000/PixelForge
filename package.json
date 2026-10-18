@@ -6,7 +6,7 @@
   "main": "desktop/main.cjs",
   "scripts": {
     "start": "electron .",
-    "desktop:prepare": "node desktop/copy-vendor.cjs",
+    "desktop:prepare": "node desktop/copy-vendor.cjs && node desktop/make-icon.cjs",
     "build:win": "npm run desktop:prepare && electron-builder --win nsis --x64 --publish never",
     "pack:win": "npm run desktop:prepare && electron-builder --win dir --x64 --publish never"
   },
@@ -14,7 +14,8 @@
     "@supabase/supabase-js": "^2.75.0",
     "electron": "^38.0.0",
     "electron-builder": "^26.0.12",
-    "esbuild": "^0.25.12"
+    "esbuild": "^0.25.12",
+    "sharp": "^0.34.4"
   },
   "build": {
     "appId": "com.pixelforge.studio",
@@ -26,7 +27,8 @@
       "desktop/main.cjs",
       "desktop/preload.cjs",
       "desktop/vendor/supabase.min.js",
-      "package.json"
+      "package.json",
+      "desktop/icon.ico"
     ],
     "directories": {
       "output": "dist"
@@ -41,7 +43,8 @@
         }
       ],
       "artifactName": "PixelForge-Setup-${version}.${ext}",
-      "verifyUpdateCodeSignature": false
+      "verifyUpdateCodeSignature": false,
+      "icon": "desktop/icon.ico"
     },
     "nsis": {
       "oneClick": false,
