@@ -368,6 +368,7 @@
           <button class="home-action primary" id="homeActionNew">Create custom document</button>
           <button class="home-action" id="homeActionPreset">Browse presets</button>
           <button class="home-action" id="homeActionOpen">Open file</button>
+          <button class="home-action hidden" id="homeResumeDocuments">Continue editing open documents</button>
         </div>
         <section class="home-cloud-section" id="homeCloudSection">
           <div class="home-section-head"><h2>My cloud projects</h2><span id="homeCloudCount">Sign in to sync</span></div>
@@ -2133,6 +2134,12 @@ const showHome = async () => {
   closeMenus();appShell.classList.add('home-mode');homeScreen.classList.remove('hidden');
   markWorkspaceView('home');
   document.title='PixelForge Studio — Home';
+  const resume=$('#homeResumeDocuments');
+  if(resume){
+    resume.classList.toggle('hidden',!documentTabs.length);
+    resume.textContent=documentTabs.length===1?'Continue editing '+(state.name||'document')
+      :'Continue editing '+documentTabs.length+' open documents';
+  }
   await renderHomeLibrary();
   renderCloudProjects();
 };
@@ -2641,6 +2648,31 @@ const importImage = async (file,dropPoint=null) => {
     return true;
   }catch(err){console.error('Place image failed',err);toast('Could not place '+(file.name||'image'));return false;}
   finally{if(url)URL.revokeObjectURL(url);}
+};
+// Electron uses a real Windows file dialog. Web users keep the browser file input.
+const chooseFileFromComputer=async (kind='open')=>{
+  const fallback={open:'#openInput',place:'#imageInput',psd:'#psdInput',project:'#projectInput'};
+  if(!Object.hasOwn(fallback,kind))return;
+  if(!window.pixelforgeDesktop?.isDesktop){
+    $(fallback[kind])?.click();return;
+  }
+  try{
+    const items=await window.pixelforgeDesktop.openFiles(kind);
+    if(!Array.isArray(items))throw new Error('The Windows file dialog did not return any files');
+    for(const item of items){
+      if(!item||typeof item.name!=='string'||!item.bytes)continue;
+      const bytes=item.bytes instanceof Uint8Array?item.bytes:new Uint8Array(item.bytes);
+      const file=new File([bytes],item.name,{type:String(item.type||'application/octet-stream')});
+      if(kind==='place'){
+        if(appShell.classList.contains('home-mode')){
+          await openAnyFile(file);
+        }else await importImage(file);
+      }else await openAnyFile(file);
+    }
+  }catch(error){
+    console.error('Native file open failed',error);
+    toast('Could not open file: '+String(error.message||error).slice(0,180));
+  }
 };
 const helpDialog = () => {
   const shortcuts=[['V','Move layer'],['M','Rectangle selection'],['B','Brush'],['E','Eraser'],['G','Paint bucket'],['T','Text'],['U','Rectangle'],['C','Crop'],['H','Hand'],['Z','Zoom'],['Ctrl + Z','Undo'],['Ctrl + Shift + Z','Redo'],['Ctrl + D','Deselect'],['Ctrl + C / V','Copy / paste'],['Ctrl + S','Save current document'],['Ctrl + Shift + S','Save As'],['Ctrl + R','Show / hide rulers'],["Ctrl + '",'Show / hide grid'],['Space + drag','Pan canvas'],['Ctrl + scroll','Zoom canvas'],['Shift + click layer','Select a layer range'],['Ctrl/Cmd + click layer','Toggle layers in multi-selection'],['Delete','Delete all highlighted layers / folders'],['Shift + corner drag','Resize proportionally'],['Alt + corner drag','Resize proportionally from center'],['Shift + Delete','Clear selected pixels'],['Ctrl + G','Group selected layer'],['Ctrl + Alt + G','Clipping mask'],['Enter','Apply crop'],['Arrows','Nudge selected layer(s)']];
@@ -3189,8 +3221,8 @@ const deleteCloudProject=async id=>{
 };
 const menuDefinitions = {
   file:[
-    ['Home','',showHome],['Account / Sign in…','',openAccountDialog],['---'],['New Custom Document…','Ctrl+N',requestCustomDocument],['New From Presets…','',resetDocument],['Open image or project as document…','Ctrl+O',()=>$('#openInput').click()],['Open PSD…','',()=>$('#psdInput').click()],['Open PixelForge project…','',()=>$('#projectInput').click()],
-    ['---'],['Place image as layer…','',()=>$('#imageInput').click()],['Open sample composition','',()=>createDemoProject()],
+    ['Home','',showHome],['Account / Sign in…','',openAccountDialog],['---'],['New Custom Document…','Ctrl+N',requestCustomDocument],['New From Presets…','',resetDocument],['Open image or project as document…','Ctrl+O',()=>chooseFileFromComputer('open')],['Open PSD…','',()=>chooseFileFromComputer('psd')],['Open PixelForge project…','',()=>chooseFileFromComputer('project')],
+    ['---'],['Place image as layer…','',()=>chooseFileFromComputer('place')],['Open sample composition','',()=>createDemoProject()],
     ['---'],['Save','Ctrl+S',saveProject],['Save As (download)…','Ctrl+Shift+S',saveAsDialog],['Save a Copy…','',saveCopyDialog],['Download PixelForge project…','',downloadProject],['---'],['Export','',[
       ['PNG…','',()=>exportImage('png')],['JPEG…','',()=>exportImage('jpeg')],['WebP…','',()=>exportImage('webp')],['GIF (single-frame)…','',()=>exportSavedFormat('gif')],['BMP…','',()=>exportSavedFormat('bmp')],['TIFF…','',()=>exportSavedFormat('tiff')],['Targa (TGA)…','',()=>exportSavedFormat('tga')],['PDF (flattened)…','',()=>exportSavedFormat('pdf')],['Photoshop PSD (layers)…','',exportPSD],['Export options…','',exportDialog]
     ]],['---'],['Document information…','',documentInfoDialog],['Close document','',()=>closeDocumentTab(activeDocumentTabId)]
@@ -3268,10 +3300,13 @@ const setupUI = () => {
   $('#homeActionNew').addEventListener('click',requestCustomDocument);
   $('#homePresets').addEventListener('click',resetDocument);
   $('#homeActionPreset').addEventListener('click',resetDocument);
-  $('#homeOpenComputer').addEventListener('click',()=>$('#openInput').click());
-  $('#homeActionOpen').addEventListener('click',()=>$('#openInput').click());
+  $('#homeOpenComputer').addEventListener('click',()=>chooseFileFromComputer('open'));
+  $('#homeActionOpen').addEventListener('click',()=>chooseFileFromComputer('open'));
   $('#homeYourFiles').addEventListener('click',()=>$('#homeLibraryGrid').scrollIntoView({behavior:'smooth',block:'start'}));
   $('#homeCloudFiles').addEventListener('click',()=>$('#homeCloudGrid').scrollIntoView({behavior:'smooth',block:'start'}));
+  $('#homeResumeDocuments').addEventListener('click',()=>{
+    if(documentTabs.length&&activeDocumentTabId)showEditor({preserveView:true});
+  });
   $('#homeAccountButton').addEventListener('click',openAccountDialog);
   $('#homeSignOut').addEventListener('click',signOutCloud);
   $('#homeCloudGrid').addEventListener('click',e=>{
@@ -3289,7 +3324,7 @@ const setupUI = () => {
   $('#headerNew').addEventListener('click',requestCustomDocument);
   $('#headerResize').addEventListener('click',canvasSizeDialog);
   $('#canvasSizeLabel').addEventListener('click',canvasSizeDialog);
-  $('#headerOpen').addEventListener('click',()=>$('#openInput').click());
+  $('#headerOpen').addEventListener('click',()=>chooseFileFromComputer('open'));
   $('#headerExport').addEventListener('click',exportDialog);
   $('#undoBtn').addEventListener('click',undo);$('#redoBtn').addEventListener('click',redo);
   $('#helpBtn').addEventListener('click',helpDialog);
@@ -3329,7 +3364,7 @@ const setupUI = () => {
   $('#maskLayerBtn').addEventListener('click',addLayerMask);
   $('#duplicateLayerBtn').addEventListener('click',duplicateLayer);
   $('#deleteLayerBtn').addEventListener('click',()=>deleteLayer());
-  $('#addImageLayer').addEventListener('click',()=>$('#imageInput').click());
+  $('#addImageLayer').addEventListener('click',()=>chooseFileFromComputer('place'));
   $('#moveLayerUp').addEventListener('click',()=>moveLayerOrder(1));
   $('#moveLayerDown').addEventListener('click',()=>moveLayerOrder(-1));
   $('#blendSelect').addEventListener('change',e=>{const l=getActive();if(!l)return;l.blend=e.target.value;record('Change blend mode');});
@@ -3517,7 +3552,7 @@ const setupKeys = () => {
       if(key==='g'&&e.altKey){e.preventDefault();toggleClipping();return;}
       if(key==='r'&&!e.shiftKey){e.preventDefault();toggleRulers();return;}
       if(key==="'"&&!e.shiftKey){e.preventDefault();toggleGrid();return;}
-      const combo={z:()=>e.shiftKey?redo():undo(),y:redo(),s:()=>e.shiftKey?saveAsDialog():saveProject(),o:()=>$('#openInput').click(),n:()=>e.shiftKey?addLayer('Layer '+nextLayerId):requestCustomDocument(),g:()=>newGroup(true),j:duplicateLayer,i:()=>applyPreset('invert'),d:deselect,a:selectAll,c:copySelection,e:mergeDown,'0':fitZoom,'1':()=>setZoom(1),'+':()=>setZoom(state.zoom*1.25),'=':()=>setZoom(state.zoom*1.25),'-':()=>setZoom(state.zoom/1.25)};
+      const combo={z:()=>e.shiftKey?redo():undo(),y:redo(),s:()=>e.shiftKey?saveAsDialog():saveProject(),o:()=>chooseFileFromComputer('open'),n:()=>e.shiftKey?addLayer('Layer '+nextLayerId):requestCustomDocument(),g:()=>newGroup(true),j:duplicateLayer,i:()=>applyPreset('invert'),d:deselect,a:selectAll,c:copySelection,e:mergeDown,'0':fitZoom,'1':()=>setZoom(1),'+':()=>setZoom(state.zoom*1.25),'=':()=>setZoom(state.zoom*1.25),'-':()=>setZoom(state.zoom/1.25)};
       if(combo[key]){e.preventDefault();combo[key]();}return;
     }
     if(e.code==='Space'){e.preventDefault();panHolding=true;overlay.style.cursor='grab';return;}
@@ -3553,19 +3588,25 @@ const init = async () => {
   loadViewPreferences();
   setupUI();setupPointers();setupKeys();
   if('ResizeObserver' in window)new ResizeObserver(requestRulerRender).observe(viewport);
-  let lastView='home';try{lastView=localStorage.getItem('pixelforge:lastView')||'home';}catch{}
-  if(lastView==='editor'){
-    const restoredTabs=await restoreDocumentTabs();
-    if(!restoredTabs){
-      const recovered=await loadActiveSession();
-      if(recovered?.project){
-        try{await openProjectData(recovered.project,recovered.name||'Recovered document');state.libraryId=recovered.libraryId||null;state.cloudId=recovered.cloudId||null;state.cloudOwnerId=recovered.cloudOwnerId||null;showEditor();}
-        catch(err){console.warn('Could not restore active PixelForge document',err);createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();}
-      }else{createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();}
-    }
-  }else{
-    createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);await showHome();
+  if(window.pixelforgeDesktop?.isDesktop){
+    window.pixelforgeDesktop.onOpenRequest(kind=>chooseFileFromComputer(kind));
+    window.pixelforgeDesktop.onUpdateReady(message=>toast(String(message||'PixelForge update downloaded.')));
   }
+  // Always open on Home. Restore any unfinished documents behind the Home screen,
+  // so a fresh app launch never drops the user directly into an old editing session.
+  const restoredTabs=await restoreDocumentTabs();
+  if(!restoredTabs){
+    const recovered=await loadActiveSession();
+    if(recovered?.project){
+      try{
+        await openProjectData(recovered.project,recovered.name||'Recovered document');
+        state.libraryId=recovered.libraryId||null;state.cloudId=recovered.cloudId||null;
+        state.cloudOwnerId=recovered.cloudOwnerId||null;
+      }catch(error){console.warn('Could not restore active document',error);}
+    }
+  }
+  if(!documentTabs.length)createBaseDocument(1280,800,false,'Untitled-1','#ffffff',72,false);
+  await showHome();
   initCloud(); // Cloud initializes asynchronously and cannot block local editing.
   window.addEventListener('resize',()=>{requestRulerRender();if(!appShell.classList.contains('home-mode')&&state.zoom*state.width>viewport.clientWidth*1.6)fitZoom();});
 };
