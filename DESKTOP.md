@@ -4,7 +4,7 @@ The Windows edition reuses the existing PixelForge editor. It runs entirely from
 
 ## Install a built EXE
 
-Visit [PixelForge Desktop Releases](https://github.com/TheImposter1000/PixelForge/releases/tag/desktop-preview) and download the latest `PixelForge-Setup-0.1.0.exe`. Run it to install PixelForge Studio.
+Visit the [latest PixelForge Desktop release](https://github.com/TheImposter1000/PixelForge/releases/latest), download its `PixelForge-Setup-*.exe` installer, and run it to install PixelForge Studio. Release installers now have unique versions and an accompanying `latest.yml` updater manifest.
 
 This initial Windows installer is **unsigned**, which means Windows SmartScreen may display an "Unknown publisher" warning. Only obtain installers from this repository's release page.
 
@@ -15,7 +15,21 @@ This initial Windows installer is **unsigned**, which means Windows SmartScreen 
 3. Run `npm run build:win` to create an NSIS Windows installer in `dist/`.
 4. Run `npm start` during development (desktop SDK is prepared automatically by the Windows packaging script; to run locally, run `npm run desktop:prepare` first).
 
-The repository's `Windows Desktop EXE` GitHub Actions workflow builds the installer on every Windows-related change to main and uploads it as a build artifact. It also updates the desktop-preview GitHub Release.
+The repository's `Windows Desktop EXE` GitHub Actions workflow builds the installer on every Windows-related change to main and uploads it as a build artifact. It automatically publishes a **new, versioned, latest GitHub Release** containing the installer, its checksum-bearing `latest.yml` manifest and any differential-update data.
+
+## Automatic updates (Windows)
+
+Beginning with the first updater-enabled release, PixelForge Desktop checks for updates when it starts and every six hours while running. Open the native **Updates** menu to:
+
+- **Check for Updates…** at any time.
+- Turn **Check automatically** on or off (enabled initially).
+- Turn **Download updates automatically** on or off (enabled initially).
+
+When a downloaded update is ready, PixelForge prompts **Restart & Install** or **Later**. Selecting Later installs the downloaded update on your next normal app exit; save your open documents first. The update replaces the application version, **not** your existing account or user documents. Update downloads require an internet connection, but normal editing does not.
+
+**One-time transition:** `PixelForge-Setup-0.1.0.exe` from the old `desktop-preview` release does not contain this updater. Install a newer version once from the [latest release](https://github.com/TheImposter1000/PixelForge/releases/latest); subsequent releases can update from within the installed app. If automatic updates fail, download the latest installer from that page.
+
+**Security note:** These early Windows installers are unsigned, so Windows may display SmartScreen warnings. Windows Authenticode verification of the downloaded installer is disabled until the project has a code-signing certificate; the updater uses GitHub over HTTPS and verifies downloaded file hashes through the release metadata. This is a preview-level trust model, not a substitute for code signing. Installers and update metadata are published together from the repository's own GitHub Actions workflow.
 
 ## Google sign-in on the desktop
 
