@@ -42,7 +42,9 @@ function checkForDesktopUpdates(manual = false) {
     return;
   }
   if(updateReady){
-    if(manual)promptToInstallUpdate();
+    if(manual)updateDialog({type:'info',title:'PixelForge update ready',
+      message:'Your update will install when you close PixelForge.',
+      detail:'No Windows restart is required. Save your documents, then close the app normally whenever you are ready.'});
     return;
   }
   updateChecking=true;
@@ -55,25 +57,14 @@ function checkForDesktopUpdates(manual = false) {
     updateCheckedManually=false;
   });
 }
-function promptToInstallUpdate() {
-  updateDialog({
-    type:'question',buttons:['Restart & Install','Later'],defaultId:1,cancelId:1,
-    title:'PixelForge update ready',
-    message:'A new version of PixelForge Studio is ready to install.',
-    detail:'Save any unsaved documents before restarting. Choose Later to install the update when you next close PixelForge.'
-  }).then(({response})=>{
-    if(response===0){
-      autoUpdater.quitAndInstall(false, true);
-    } else {
-      // The downloaded NSIS installer is applied when the app next exits.
-      autoUpdater.autoInstallOnAppQuit=true;
-    }
-  }).catch(error=>console.warn('Could not show update prompt:',error.message));
-}
 function setupDesktopUpdates() {
   readUpdatePreferences();
   const menu=Menu.buildFromTemplate([
-    {label:'File',submenu:[{role:'quit',label:'Exit PixelForge'}]},
+    {label:'File',submenu:[
+      {label:'Open from Computer…',accelerator:'CmdOrCtrl+O',click:()=>requestNativeOpen('open')},
+      {label:'Place Image as Layer…',click:()=>requestNativeOpen('place')},
+      {type:'separator'},
+      {role:'quit',label:'Exit PixelForge'}]},
     {label:'Edit',submenu:[
       {role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},
       {role:'selectAll'}]},
@@ -100,7 +91,7 @@ function setupDesktopUpdates() {
   Menu.setApplicationMenu(menu);
   if(!app.isPackaged || process.platform!=='win32')return;
   autoUpdater.autoDownload=updatePreferences.autoDownload;
-  autoUpdater.autoInstallOnAppQuit=false;
+  autoUpdater.autoInstallOnAppQuit=true;
   autoUpdater.allowPrerelease=false;
   autoUpdater.on('checking-for-update',()=>{updateChecking=true;});
   autoUpdater.on('update-not-available',()=>{
@@ -140,8 +131,12 @@ function setupDesktopUpdates() {
   });
   autoUpdater.on('update-downloaded',()=>{
     updateChecking=false;updateDownloading=false;updateReady=true;
-    if(mainWindow&&!mainWindow.isDestroyed())mainWindow.setProgressBar(-1);
-    promptToInstallUpdate();
+    autoUpdater.autoInstallOnAppQuit=true;
+    if(mainWindow&&!mainWindow.isDestroyed()){
+      mainWindow.setProgressBar(-1);
+      mainWindow.webContents.send('pixelforge:update-ready',
+        'PixelForge update downloaded. It will install when you close the app. No Windows restart needed.');
+    }
   });
   autoUpdater.on('error',error=>{
     const hadPendingUpdate=updateChecking||updateDownloading;
@@ -161,6 +156,55 @@ function setupDesktopUpdates() {
     if(updatePreferences.autoCheck)checkForDesktopUpdates(false);
   },6*60*60*1000);
   updateInterval.unref?.();
+}
+
+
+const OPEN_FORMATS={
+  open:{title:'Open images or PixelForge projects',filters:[
+    {name:'Images and projects',extensions:['png','jpg','jpeg','webp','gif','bmp','svg','avif','psd','pforge','json']},
+    {name:'PixelForge project',extensions:['pforge','json']},
+    {name:'Photoshop PSD',extensions:['psd']},
+    {name:'Images',extensions:['png','jpg','jpeg','webp','gif','bmp','svg','avif']}
+  ]},
+  place:{title:'Place images into the current document',filters:[
+    {name:'Images',extensions:['png','jpg','jpeg','webp','gif','bmp','svg','avif']}
+  ]},
+  psd:{title:'Open Photoshop PSD',filters:[{name:'Photoshop PSD',extensions:['psd']}]},
+  project:{title:'Open editable PixelForge project',filters:[{name:'PixelForge project',extensions:['pforge','json']}]}
+};
+const mimeByExtension={
+  png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',
+  gif:'image/gif',bmp:'image/bmp',svg:'image/svg+xml',avif:'image/avif',
+  psd:'image/vnd.adobe.photoshop',pforge:'application/json',json:'application/json'
+};
+async function selectNativeFiles(kind='open'){
+  const config=OPEN_FORMATS[kind];
+  if(!config)throw new Error('Unknown file operation');
+  if(!mainWindow||mainWindow.isDestroyed())return [];
+  const result=await dialog.showOpenDialog(mainWindow,{
+    title:config.title,
+    properties:['openFile','multiSelections'],
+    filters:config.filters
+  });
+  if(result.canceled)return [];
+  const selected=[];
+  for(const pathname of result.filePaths.slice(0,24)){
+    const extension=path.extname(pathname).toLowerCase().replace(/^\./,'');
+    if(!mimeByExtension[extension])throw new Error('Unsupported file type: '+extension);
+    if(kind==='place'&&!mimeByExtension[extension].startsWith('image/'))
+      throw new Error('Choose an image to place');
+    if(kind==='psd'&&extension!=='psd')throw new Error('Select a PSD file');
+    if(kind==='project'&&!['pforge','json'].includes(extension))throw new Error('Select a PixelForge project');
+    const info=await fs.promises.stat(pathname);
+    if(!info.isFile()||info.size>100*1024*1024)throw new Error('Files must be smaller than 100 MB.');
+    const bytes=await fs.promises.readFile(pathname);
+    selected.push({name:path.basename(pathname),type:mimeByExtension[extension],bytes:new Uint8Array(bytes)});
+  }
+  return selected;
+}
+function requestNativeOpen(kind='open'){
+  if(mainWindow&&!mainWindow.isDestroyed())
+    mainWindow.webContents.send('pixelforge:request-open',kind);
 }
 
 const SCHEME = 'pixelforge';
@@ -224,6 +268,10 @@ if (!app.requestSingleInstanceLock()) {
     await shell.openExternal(url);
     return true;
   });
+  ipcMain.handle('pixelforge:open-files', async (event,kind) => {
+    if(!mainWindow||event.sender!==mainWindow.webContents)throw new Error('Invalid file request');
+    return selectNativeFiles(kind);
+  });
   ipcMain.handle('pixelforge:pending-auth', () => {
     const value = pendingOAuthLink;
     pendingOAuthLink = null;
@@ -236,6 +284,7 @@ if (!app.requestSingleInstanceLock()) {
       mainWindow = new BrowserWindow({
         width: 1440, height: 920, minWidth: 900, minHeight: 650,
         title: 'PixelForge Studio',
+        icon: path.join(__dirname,'icon.ico'),
         backgroundColor: '#101118',
         show: false,
         webPreferences: {
