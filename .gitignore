@@ -5,3 +5,4 @@ desktop/vendor/
 .env
 .env.*
 !README.md
+desktop/icon.ico
