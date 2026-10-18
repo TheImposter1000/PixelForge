@@ -11,6 +11,10 @@ on:
       - '.github/workflows/windows-desktop.yml'
   workflow_dispatch:
 
+concurrency:
+  group: pixelforge-windows-releases
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -30,6 +34,9 @@ jobs:
       - name: Install Electron dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Set unique Windows release version
+        run: npm version 0.1.${{ github.run_number }} --no-git-tag-version
+
       - name: Build Windows installer
         run: npm run build:win
         env:
@@ -43,17 +50,22 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish public preview download
+      - name: Publish auto-update release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: desktop-preview
-          name: PixelForge Studio — Windows Preview
-          prerelease: true
-          make_latest: false
-          files: dist/*.exe
+          tag_name: v0.1.${{ github.run_number }}
+          name: PixelForge Studio v0.1.${{ github.run_number }} — Windows
+          prerelease: false
+          make_latest: true
+          files: |
+            dist/*.exe
+            dist/latest.yml
+            dist/*.blockmap
           body: |
-            Install PixelForge Studio for Windows 10/11 with the EXE below.
-            This preview installer is not code signed and Windows SmartScreen may display a warning.
-            Offline editing is supported. Online account features require a connection.
-            Google desktop sign-in also requires pixelforge://auth/callback in Supabase Redirect URLs.
+            PixelForge Studio Windows update v0.1.${{ github.run_number }}.
+            Download the EXE below to install PixelForge, or use the app's Updates menu.
+            After installing the updater-enabled version, future versions can be downloaded
+            automatically from GitHub Releases and installed by restarting PixelForge.
+            Windows SmartScreen may warn because the installer is not yet code signed.
+            Google desktop sign-in requires pixelforge://auth/callback in Supabase Redirect URLs.
