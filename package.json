@@ -9,7 +9,8 @@
     "desktop:prepare": "node desktop/copy-vendor.cjs && node desktop/make-icon.cjs",
     "build:win": "npm run desktop:prepare && electron-builder --win nsis --x64 --publish never",
     "pack:win": "npm run desktop:prepare && electron-builder --win dir --x64 --publish never",
-    "test:gif": "node desktop/test-gif.cjs"
+    "test:gif": "node desktop/test-gif.cjs",
+    "test:editor": "node desktop/test-editor.cjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.75.0",
