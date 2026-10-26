@@ -13,6 +13,18 @@ let updateDownloading = false;
 let updateReady = false;
 let updateCheckedManually = false;
 let updateInterval = null;
+let desktopUpdateState={state:'idle',message:'Automatic update checks are available.',progress:0,availableVersion:null};
+function currentUpdateStatus(){
+  return {...desktopUpdateState,installedVersion:app.getVersion(),
+    supported:app.isPackaged&&process.platform==='win32',
+    autoCheck:updatePreferences.autoCheck,autoDownload:updatePreferences.autoDownload};
+}
+function reportUpdateStatus(patch){
+  desktopUpdateState={...desktopUpdateState,...patch};
+  if(mainWindow&&!mainWindow.isDestroyed()&&!mainWindow.webContents.isLoading()){
+    mainWindow.webContents.send('pixelforge:update-status',currentUpdateStatus());
+  }
+}
 const updatePreferencesPath = () => path.join(app.getPath('userData'), 'desktop-update-preferences.json');
 const updatePreferences = {autoCheck: true, autoDownload: true};
 function readUpdatePreferences() {
@@ -49,9 +61,11 @@ function checkForDesktopUpdates(manual = false) {
   }
   updateChecking=true;
   updateCheckedManually=manual;
+  reportUpdateStatus({state:'checking',message:'Checking for a new PixelForge version…',progress:0});
   Promise.resolve(autoUpdater.checkForUpdates()).catch(error=>{
     updateChecking=false;
     console.error('PixelForge update check failed:',error.message);
+    reportUpdateStatus({state:'error',message:'Update check failed: '+String(error.message).slice(0,160)});
     if(updateCheckedManually)updateDialog({type:'error',title:'Update check failed',
       message:'Could not check for updates.',detail:String(error.message).slice(0,350)});
     updateCheckedManually=false;
@@ -93,15 +107,21 @@ function setupDesktopUpdates() {
   autoUpdater.autoDownload=updatePreferences.autoDownload;
   autoUpdater.autoInstallOnAppQuit=true;
   autoUpdater.allowPrerelease=false;
-  autoUpdater.on('checking-for-update',()=>{updateChecking=true;});
+  autoUpdater.on('checking-for-update',()=>{
+    updateChecking=true;
+    reportUpdateStatus({state:'checking',message:'Checking for updates…'});
+  });
   autoUpdater.on('update-not-available',()=>{
     updateChecking=false;
+    reportUpdateStatus({state:'current',message:'PixelForge Studio is up to date.',progress:0});
     if(updateCheckedManually)updateDialog({type:'info',title:'PixelForge is up to date',
       message:'You are using the latest PixelForge Studio version ('+app.getVersion()+').'});
     updateCheckedManually=false;
   });
   autoUpdater.on('update-available',info=>{
     updateChecking=false;
+    reportUpdateStatus({state:'available',availableVersion:info.version,
+      message:'PixelForge '+info.version+' is available.',progress:0});
     const manual=updateCheckedManually;
     updateCheckedManually=false;
     if(!updatePreferences.autoDownload) {
@@ -111,20 +131,25 @@ function setupDesktopUpdates() {
         buttons:['Download Update','Not Now'],defaultId:0,cancelId:1}).then(({response})=>{
           if(response===0){
             updateDownloading=true;
+            reportUpdateStatus({state:'downloading',message:'Downloading update '+info.version+'…',progress:0});
             autoUpdater.downloadUpdate().catch(error=>{
               updateDownloading=false;
               console.error('PixelForge update download failed:',error.message);
+              reportUpdateStatus({state:'error',message:'Update download failed: '+String(error.message).slice(0,130)});
               updateDialog({type:'error',title:'Update failed',message:String(error.message).slice(0,250)});
             });
           }
         });
     } else {
       updateDownloading=true;
+      reportUpdateStatus({state:'downloading',message:'Downloading update '+info.version+'…',progress:0});
       if(manual)console.info('PixelForge automatically downloading version',info.version);
     }
   });
   autoUpdater.on('download-progress',progress=>{
     updateDownloading=true;
+    reportUpdateStatus({state:'downloading',progress:Math.min(100,Math.max(0,progress.percent)),
+      message:'Downloading PixelForge update: '+Math.round(progress.percent)+'%'});
     if(mainWindow&&!mainWindow.isDestroyed()){
       mainWindow.setProgressBar(Math.min(1,progress.percent/100));
     }
@@ -132,6 +157,8 @@ function setupDesktopUpdates() {
   autoUpdater.on('update-downloaded',()=>{
     updateChecking=false;updateDownloading=false;updateReady=true;
     autoUpdater.autoInstallOnAppQuit=true;
+    reportUpdateStatus({state:'ready',progress:100,
+      message:'Update ready. Save your work and close PixelForge to install. No computer restart.'});
     if(mainWindow&&!mainWindow.isDestroyed()){
       mainWindow.setProgressBar(-1);
       mainWindow.webContents.send('pixelforge:update-ready',
@@ -143,6 +170,7 @@ function setupDesktopUpdates() {
     updateChecking=false;updateDownloading=false;
     if(mainWindow&&!mainWindow.isDestroyed())mainWindow.setProgressBar(-1);
     console.error('PixelForge updater error:',error.message);
+    reportUpdateStatus({state:'error',message:'Updater error: '+String(error.message).slice(0,150)});
     if(updateCheckedManually||hadPendingUpdate)
       updateDialog({type:'error',title:'PixelForge updater error',
         message:'An update could not be completed.',detail:String(error.message).slice(0,350)});
@@ -267,6 +295,15 @@ if (!app.requestSingleInstanceLock()) {
     if (!isProviderAuthURL(url)) throw new Error('Untrusted authentication URL blocked');
     await shell.openExternal(url);
     return true;
+  });
+  ipcMain.handle('pixelforge:update-status',event=>{
+    if(!mainWindow||event.sender!==mainWindow.webContents)throw new Error('Invalid update status request');
+    return currentUpdateStatus();
+  });
+  ipcMain.handle('pixelforge:check-updates',event=>{
+    if(!mainWindow||event.sender!==mainWindow.webContents)throw new Error('Invalid update request');
+    checkForDesktopUpdates(true);
+    return currentUpdateStatus();
   });
   ipcMain.handle('pixelforge:open-files', async (event,kind) => {
     if(!mainWindow||event.sender!==mainWindow.webContents)throw new Error('Invalid file request');
