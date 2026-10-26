@@ -205,6 +205,14 @@ const mimeByExtension={
   gif:'image/gif',bmp:'image/bmp',svg:'image/svg+xml',avif:'image/avif',
   psd:'image/vnd.adobe.photoshop',pforge:'application/json',json:'application/json'
 };
+async function readNativeFile(pathname){
+  const extension=path.extname(pathname).toLowerCase().replace(/^\./,'');
+  if(!Object.hasOwn(mimeByExtension,extension))throw new Error('Unsupported file type: '+extension);
+  const info=await fs.promises.stat(pathname);
+  if(!info.isFile()||info.size>100*1024*1024)throw new Error('Files must be smaller than 100 MB.');
+  const bytes=await fs.promises.readFile(pathname);
+  return {name:path.basename(pathname),type:mimeByExtension[extension],bytes:new Uint8Array(bytes)};
+}
 async function selectNativeFiles(kind='open'){
   const config=OPEN_FORMATS[kind];
   if(!config)throw new Error('Unknown file operation');
@@ -218,15 +226,11 @@ async function selectNativeFiles(kind='open'){
   const selected=[];
   for(const pathname of result.filePaths.slice(0,24)){
     const extension=path.extname(pathname).toLowerCase().replace(/^\./,'');
-    if(!mimeByExtension[extension])throw new Error('Unsupported file type: '+extension);
-    if(kind==='place'&&!mimeByExtension[extension].startsWith('image/'))
+    if(kind==='place'&&!mimeByExtension[extension]?.startsWith('image/'))
       throw new Error('Choose an image to place');
     if(kind==='psd'&&extension!=='psd')throw new Error('Select a PSD file');
     if(kind==='project'&&!['pforge','json'].includes(extension))throw new Error('Select a PixelForge project');
-    const info=await fs.promises.stat(pathname);
-    if(!info.isFile()||info.size>100*1024*1024)throw new Error('Files must be smaller than 100 MB.');
-    const bytes=await fs.promises.readFile(pathname);
-    selected.push({name:path.basename(pathname),type:mimeByExtension[extension],bytes:new Uint8Array(bytes)});
+    selected.push(await readNativeFile(pathname));
   }
   return selected;
 }
@@ -238,6 +242,25 @@ function requestNativeOpen(kind='open'){
 const SCHEME = 'pixelforge';
 let mainWindow = null;
 let pendingOAuthLink = null;
+const pendingFilePaths=[];
+let forwardingFiles=false;
+// The app must open through the Home screen on normal launch. Windows Explorer
+// file arguments are delivered only after the renderer has finished loading.
+async function flushExternalFileOpens(){
+  if(forwardingFiles||!pendingFilePaths.length||!mainWindow||mainWindow.isDestroyed()||mainWindow.webContents.isLoading())return;
+  forwardingFiles=true;
+  try{
+    while(pendingFilePaths.length){
+      const paths=pendingFilePaths.splice(0,24),files=[];
+      for(const pathname of paths){
+        try{files.push(await readNativeFile(pathname));}
+        catch(error){console.error('Could not open Windows file:',pathname,error.message);}
+      }
+      if(files.length&&mainWindow&&!mainWindow.isDestroyed())
+        mainWindow.webContents.send('pixelforge:open-path-files',files);
+    }
+  }finally{forwardingFiles=false;}
+}
 
 function isAuthCallback(value) {
   if (typeof value !== 'string' || value.length > 12000) return false;
@@ -272,6 +295,12 @@ function deliverOAuthLink(value) {
 function parseCommandLine(commandLine) {
   const authURL = commandLine.find(arg => isAuthCallback(arg));
   if (authURL) deliverOAuthLink(authURL);
+  for(const arg of commandLine){
+    if(typeof arg!=='string'||arg.startsWith('-')||!/[.](png|jpe?g|webp|gif|bmp|svg|avif|psd|pforge|json)$/i.test(arg))continue;
+    const pathname=path.resolve(arg);
+    if(fs.existsSync(pathname)&&!pendingFilePaths.includes(pathname))pendingFilePaths.push(pathname);
+  }
+  void flushExternalFileOpens();
 }
 
 if (process.defaultApp) {
@@ -285,7 +314,13 @@ if (process.defaultApp) {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', (_event, argv) => parseCommandLine(argv));
+  app.on('second-instance', (_event, argv) => {
+    parseCommandLine(argv);
+    if(mainWindow&&!mainWindow.isDestroyed()){
+      if(mainWindow.isMinimized())mainWindow.restore();
+      mainWindow.show();mainWindow.focus();
+    }
+  });
   app.on('open-url', (event, url) => {
     event.preventDefault();
     deliverOAuthLink(url);
@@ -333,6 +368,7 @@ if (!app.requestSingleInstanceLock()) {
         }
       });
       mainWindow.once('ready-to-show', () => mainWindow.show());
+      mainWindow.webContents.once('did-finish-load',()=>void flushExternalFileOpens());
       mainWindow.loadFile(path.join(__dirname, '..', 'index.html'));
       mainWindow.webContents.setWindowOpenHandler(({url}) => {
         if (url.startsWith('https://') || url.startsWith('http://')) shell.openExternal(url);

@@ -53,6 +53,34 @@ The app contains only the Supabase **publishable** key. OAuth client secrets and
 - This is an early unsigned installer, not a Microsoft Store package.
 - To avoid losing work, save .pforge backups before uninstalling or clearing app data.
 
+## High-quality embedded image placement
+
+**Place Image as Layer** now keeps the image at its original pixel dimensions, using
+non-destructive layer scale and position values to fit it within the document.
+For example, a 1254 × 1254 PNG placed into a 150 × 150 document is shown at
+150 × 150 with position X=0, Y=0, without a 3-pixel inset or loss of source pixels.
+Placed image layers display **Embedded image** and their original dimensions in
+the layer inspector. Resize handles and X/Y/width/height fields change the
+transform, not the original image pixels. Changing the canvas size and cropping
+the document also preserve off-canvas layer source pixels.
+
+A placed image is **not** yet a native Photoshop Smart Object. Its full-resolution
+pixels are preserved in PixelForge .pforge projects. To paint on one or use
+destructive filters, right-click the layer and choose **Rasterize embedded image**.
+Rasterization intentionally converts it to the current document resolution.
+
+The adjustments-preview renderer now prevents old previews from another layer
+or document from replacing the current canvas, including after tab switches.
+
+## Open files directly from Windows Explorer
+
+The NSIS installer registers **Open with PixelForge Studio** for .pforge files,
+common image formats and .psd files. You may need to select PixelForge as the
+default app in Windows for double-click file launching; registration does not
+force a new default for images. Opening files when the application is running
+reuses the existing instance, and passes the selected file to the editor after
+it has loaded. Normal launches still open on the Home screen.
+
 ## Photo and GIF export quality
 
 For photographic portraits, export at **100% image dimensions**, use **256 GIF palette colors**, and leave optional Floyd–Steinberg dithering off for clean skin tones. Enable the dithering option only if smooth gradients show visible banding. PixelForge's GIF exporter uses an image-adaptive palette and finer 6-bit/channel color matching. **PNG or WebP** remains preferable when you need full-color detail because GIF cannot store more than 256 palette entries. The Windows build tests both transparent GIF decoding and quantitative pixel fidelity before publishing.

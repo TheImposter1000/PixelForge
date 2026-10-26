@@ -9,7 +9,8 @@
     "desktop:prepare": "node desktop/copy-vendor.cjs && node desktop/make-icon.cjs",
     "build:win": "npm run desktop:prepare && electron-builder --win nsis --x64 --publish never",
     "pack:win": "npm run desktop:prepare && electron-builder --win dir --x64 --publish never",
-    "test:gif": "node desktop/test-gif.cjs"
+    "test:gif": "node desktop/test-gif.cjs",
+    "test:editor": "node desktop/test-editor.cjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.75.0",
@@ -70,6 +71,35 @@
         "owner": "TheImposter1000",
         "repo": "PixelForge",
         "releaseType": "release"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "pforge",
+        "name": "PixelForge Studio Project",
+        "description": "Editable PixelForge image project",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "png",
+          "jpg",
+          "jpeg",
+          "webp",
+          "gif",
+          "bmp",
+          "avif",
+          "svg"
+        ],
+        "name": "PixelForge Image",
+        "description": "Image file",
+        "role": "Editor"
+      },
+      {
+        "ext": "psd",
+        "name": "Photoshop Document",
+        "description": "Layered Photoshop image",
+        "role": "Editor"
       }
     ]
   },

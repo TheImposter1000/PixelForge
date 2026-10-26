@@ -213,6 +213,9 @@
 .inspector-tabs button.active{color:#f1edff;border-bottom-color:#9c83ff;background:#292a34}
 .inspector-tab-panel{display:none;padding:15px;min-height:205px}
 .inspector-tab-panel.active{display:block}
+.inspector-tab-panel{min-height:0}
+.inspector-tabs-section:has([data-inspector-tab="properties"].active) [data-inspector-panel="color"],
+.inspector-tabs-section:has([data-inspector-tab="color"].active) [data-inspector-panel="properties"]{display:block}
 .inspector-tabs-section .properties-section{background:#20212b}
 .inspector-tabs-section .color-section,.inspector-tabs-section .adjustments-section{border:0}
 
@@ -222,7 +225,8 @@
 .topbar #headerResize,
 .topbar #headerOpen,
 .topbar #headerExport{display:none!important}
-.optionsbar{display:none!important}
+.workspace-topnote{display:none!important}
+.optionsbar{display:flex}
 .navigator-section,
 .history-section{display:none!important}
 
@@ -781,7 +785,7 @@ const movablePartsForSelection = () => {
 const makeLayer = (name, options={}) => ({
   id:nextLayerId++,name:name||`Layer ${nextLayerId}`,canvas:makeCanvas(),visible:true,opacity:1,
   blend:'source-over',locked:false,x:0,y:0,scaleX:1,scaleY:1,type:'raster',textConfig:null,bounds:null,
-  parentId:null,expanded:true,clipToBelow:false,maskCanvas:null,...options
+  parentId:null,expanded:true,clipToBelow:false,maskCanvas:null,embedded:false,sourceName:null,...options
 });
 const effectiveFilter = () => {
   const a=state.adjustments;
@@ -806,13 +810,20 @@ const layerSourceCanvas = layer => {
 const paintLayerItem = (target,layer,showPreview=false) => {
   if(!layer.visible)return;
   target.save();target.globalAlpha=layer.opacity;target.globalCompositeOperation=layer.blend;
+  target.imageSmoothingEnabled=true;target.imageSmoothingQuality='high';
   if(layer.type==='group'){
     const temp=makeCanvas();paintChildren(temp.getContext('2d'),layer.id,showPreview);
     target.drawImage(temp,0,0);
   }else{
     target.translate(layer.x,layer.y);target.scale(layer.scaleX,layer.scaleY);
     if(showPreview&&layer.id===state.activeId)target.filter=effectiveFilter();
-    target.drawImage((showPreview&&layer.id===state.activeId&&currentAdjustmentPreview)||layerSourceCanvas(layer),0,0);
+    const preview=showPreview&&layer.id===state.activeId&&currentAdjustmentPreview
+      &&currentAdjustmentPreviewLayerId===layer.id
+      &&currentAdjustmentPreviewDocumentId===activeDocumentTabId
+      &&currentAdjustmentPreview.width===layer.canvas.width
+      &&currentAdjustmentPreview.height===layer.canvas.height
+      ?currentAdjustmentPreview:null;
+    target.drawImage(preview||layerSourceCanvas(layer),0,0);
   }
   target.restore();
 };
@@ -971,6 +982,9 @@ const resizeStage = () => {
   stage.style.width=`${w*z}px`;stage.style.height=`${h*z}px`;
   stage.style.transform=`translate(-50%, -50%) translate(${state.panX}px, ${state.panY}px)`;
   $('#canvasSizeLabel').textContent=`${w} × ${h} px`;
+  // Resizing a canvas resets its bitmap. Paint immediately, then schedule a
+  // normal frame to avoid showing an empty or partly stale canvas after tabs switch.
+  drawLayers(ctx);drawOverlay();
   requestRender();requestRulerRender();updateStatus();
 };
 const applyStageZoom = () => {
@@ -1099,7 +1113,20 @@ const editLayer = () => {
   if(l.type==='group'){toast('Select a pixel layer inside the folder before editing');return null;}
   if(l.locked){toast('Unlock this layer to edit it');return null;}
   if(!l.visible){toast('Make this layer visible first');return null;}
+  if(l.embedded){toast('This placed image retains its source pixels. Right-click the layer and choose Rasterize to paint on it.');return null;}
   return l;
+};
+// Rasterization is explicit: merely placing, moving or resizing an embedded image never
+// overwrites its full-resolution source. Painting and destructive filters require this action.
+const rasterizeEmbeddedLayer = () => {
+  const l=getActive();if(!l?.embedded||l.locked)return;
+  const flattened=makeCanvas(),target=flattened.getContext('2d');
+  target.imageSmoothingEnabled=true;target.imageSmoothingQuality='high';
+  target.translate(l.x,l.y);target.scale(l.scaleX,l.scaleY);
+  target.drawImage(layerSourceCanvas(l),0,0);
+  l.canvas=flattened;l.maskCanvas=null;l.x=0;l.y=0;l.scaleX=1;l.scaleY=1;
+  l.embedded=false;l.sourceName=null;l.type='raster';determineBounds(l);
+  record('Rasterize embedded image');
 };
 const removeLayerSubtree = id => {
   const deleted=new Set([id,...descendantsOf(id).map(l=>l.id)]);
@@ -1247,7 +1274,7 @@ const renderLayers = () => {
       rows.push(`<div class="layer-row ${selectedIds.has(layer.id)?'selected':''} ${layer.type==='group'?'group-row':''}" draggable="true" data-id="${layer.id}" data-type="${layer.type}" style="padding-left:${Math.min(52,7+depth*15)}px">
         <button class="layer-visibility" data-action="eye" title="${layer.visible?'Hide':'Show'} layer">${icon(layer.visible?'eye':'eye-off')}</button>
         ${layer.type==='group'?`<button class="folder-toggle" data-action="expand" title="Expand / collapse folder">${layer.expanded?'▾':'▸'}</button><span class="folder-mark">▣</span>`:`<span class="folder-spacer"></span><div class="layer-thumb"><canvas width="39" height="39"></canvas></div>`}
-        <div class="layer-desc"><span class="layer-name" title="Double-click to rename">${escapeHTML(layer.name)}</span><span class="layer-meta">${layer.type==='group'?`${descendantsOf(layer.id).length} items · Folder`:layer.clipToBelow?'↳ Clipped image':layer.maskCanvas?'Layer mask':layer.type==='text'?'Text layer':layer.locked?'Locked layer':'Pixel layer'} · ${Math.round(layer.opacity*100)}%</span></div>
+        <div class="layer-desc"><span class="layer-name" title="Double-click to rename">${escapeHTML(layer.name)}</span><span class="layer-meta">${layer.type==='group'?`${descendantsOf(layer.id).length} items · Folder`:layer.clipToBelow?'↳ Clipped image':layer.maskCanvas?'Layer mask':layer.type==='text'?'Text layer':layer.embedded?'Embedded image':layer.locked?'Locked layer':'Pixel layer'} · ${Math.round(layer.opacity*100)}%</span></div>
         ${layer.type==='group'?'':`<button class="layer-clip ${layer.clipToBelow?'on':''}" data-action="clip" title="${layer.clipToBelow?'Release':'Create'} clipping mask">↳</button>`}
         <button class="layer-lock" data-action="lock" title="${layer.locked?'Unlock':'Lock'} layer">${icon(layer.locked?'lock':'unlock')}</button>
         <button class="layer-delete" data-action="delete" title="Delete layer">${icon('trash')}</button></div>`);
@@ -1267,7 +1294,7 @@ const showLayerContextMenu = (x,y) => {
   const menu=document.createElement('div');menu.className='layer-context-menu';
   const options=[['Rename',()=>renameLayerDialog(getActive())],['Duplicate',duplicateLayer],
     ['New folder',()=>newGroup()],['Group this layer',()=>newGroup(true)],
-    ...(selected.type==='group'?[['Ungroup',ungroup]]:[['Clipping mask',toggleClipping],['Add layer mask',addLayerMask],['Remove mask',removeLayerMask]]),
+    ...(selected.type==='group'?[['Ungroup',ungroup]]:[...(selected.embedded?[['Rasterize embedded image',rasterizeEmbeddedLayer]]:[]),['Clipping mask',toggleClipping],['Add layer mask',addLayerMask],['Remove mask',removeLayerMask]]),
     ['Move into folder…',moveToFolderDialog],['Move out of folder',()=>moveToGroup(state.activeId,null)],['Delete',()=>deleteLayer()]];
   for(const [label,fn] of options){const b=document.createElement('button');b.textContent=label;b.addEventListener('click',()=>{menu.remove();fn();});menu.appendChild(b);}
   document.body.appendChild(menu);menu.style.left=Math.min(x,window.innerWidth-220)+'px';menu.style.top=Math.min(y,window.innerHeight-340)+'px';
@@ -1292,7 +1319,7 @@ const updateToolOptions = () => {
   else if(t==='text')html='<span style="color:#9296a8">Click anywhere on the canvas to add editable text</span>';
   else if(t==='zoom')html='<button id="zoomInOption">Zoom in +</button><button id="zoomOutOption">Zoom out −</button><button id="fitOption">Fit to screen</button>';
   else if(t==='hand')html='<span style="color:#9296a8">Drag the canvas to pan · Hold Space from any tool</span>';
-  else if(t==='move')html='<span style="color:#9296a8">Drag to move · Shift + corner keeps proportions · Alt + corner resizes proportionally from center · Ctrl/Cmd or Shift click layers for multi-select</span>';
+  else if(t==='move')html='<span style="color:#9296a8">Drag to move · Images resize proportionally by default · Shift unlocks proportions · Alt resizes from center · Ctrl/Cmd or Shift click layers for multi-select</span>';
   else if(t==='eyedropper')html='<span style="color:#9296a8">Click the canvas to sample a color</span>';
   $('#toolOptions').innerHTML=html;
   const bindInput=(s,fn)=>{const el=$(s);if(el)el.addEventListener('input',fn);};
@@ -1312,6 +1339,13 @@ const updateToolOptions = () => {
 const docPoint = e => {
   const r=overlay.getBoundingClientRect();
   return {x:clamp((e.clientX-r.left)/r.width*state.width,0,state.width),y:clamp((e.clientY-r.top)/r.height*state.height,0,state.height)};
+};
+// Dragged layers may extend beyond the document; clipping their pointer
+// coordinates to the canvas prevents Photoshop-style off-canvas placement.
+const rawDocPoint=e=>{
+  const r=overlay.getBoundingClientRect();
+  return {x:(e.clientX-r.left)/r.width*state.width,
+          y:(e.clientY-r.top)/r.height*state.height};
 };
 const localPoint = (layer,p) => ({x:(p.x-layer.x)/layer.scaleX,y:(p.y-layer.y)/layer.scaleY});
 const rectFromPoints = (a,b,square=false) => {
@@ -1338,7 +1372,7 @@ const renderLayerProperties = () => {
   if(!l){root.innerHTML='<p class="props-empty">Select a layer to edit its position and size.</p>';return;}
   const b=docLayerBounds(l),group=l.type==='group';
   const fields=group?['x','y']:['x','y','w','h'];
-  root.innerHTML=`<div class="props-type"><strong>${escapeHTML(l.name)}</strong><span>${group?'Folder · '+descendantsOf(l.id).length+' items':l.type==='text'?'Text layer':'Raster layer'}</span></div>
+  root.innerHTML=`<div class="props-type"><strong>${escapeHTML(l.name)}</strong><span>${group?'Folder · '+descendantsOf(l.id).length+' items':l.type==='text'?'Text layer':l.embedded?'Embedded image · original '+l.canvas.width+' × '+l.canvas.height+' px':'Raster layer'}</span></div>
    ${b?`<div class="props-grid">${fields.map(k=>`<label>${k==='x'?'X position':k==='y'?'Y position':k==='w'?'Width':'Height'} (px)<input type="number" data-property="${k}" value="${Math.round(b[k]*100)/100}" step="1" ${l.locked?'disabled':''}></label>`).join('')}</div>
    ${group?'<p class="props-tip">Move the entire folder by changing X or Y. Group dimensions depend on its contents.</p>':'<label class="props-proportion"><input type="checkbox" id="propConstrain" checked> Keep aspect ratio while resizing</label>'}`:
    '<p class="props-empty">This layer has no visible pixels yet. Use the brush, shapes, text, or place an image first.</p>'}
@@ -1366,6 +1400,17 @@ const applyLayerProperty = (key,value) => {
     if(lock){if(key==='w')l.scaleY*=factor;else l.scaleX*=factor;}
   }else return;
   record('Transform layer');
+};
+const snapMovedLayer=(layer,disable=false)=>{
+  if(disable)return;
+  const b=docLayerBounds(layer);if(!b)return;
+  const threshold=6/Math.max(state.zoom,.25);
+  const targetsX=[0,(state.width-b.w)/2,state.width-b.w];
+  const targetsY=[0,(state.height-b.h)/2,state.height-b.h];
+  const near=(v,targets)=>targets.find(t=>Math.abs(t-v)<=threshold);
+  const tx=near(b.x,targetsX),ty=near(b.y,targetsY);
+  if(tx!==undefined)layer.x+=tx-b.x;
+  if(ty!==undefined)layer.y+=ty-b.y;
 };
 const hitTransformHandle = (point,layer) => {
   const b=docLayerBounds(layer);if(!b||b.w<1||b.h<1)return null;
@@ -1583,21 +1628,17 @@ const applyCrop = () => {
   if(!state.cropRect){toast('Draw a crop region first');return;}
   const r=state.cropRect,x=Math.floor(r.x),y=Math.floor(r.y),w=Math.max(1,Math.ceil(r.w)),h=Math.max(1,Math.ceil(r.h));
   if(w<10||h<10){toast('Crop area is too small');return;}
-  for(const l of state.layers){
-    const n=makeCanvas(w,h),t=n.getContext('2d');t.save();t.translate(l.x-x,l.y-y);t.scale(l.scaleX,l.scaleY);t.drawImage(l.canvas,0,0);t.restore();
-    l.canvas=n;if(l.maskCanvas){const m=makeCanvas(w,h),mc=m.getContext('2d');mc.translate(l.x-x,l.y-y);mc.scale(l.scaleX,l.scaleY);mc.drawImage(l.maskCanvas,0,0);l.maskCanvas=m;}l.x=l.y=0;l.scaleX=l.scaleY=1;
-    if(l.type!=='group'){determineBounds(l);l.textConfig=null;l.type='raster';}
-  }
+  // Crop changes the document's visible bounds, not the source pixels of layers.
+  // Artwork outside the crop remains available for later repositioning.
+  for(const l of state.layers){if(l.type!=='group'){l.x-=x;l.y-=y;}}
   state.width=w;state.height=h;state.cropRect=null;state.selection=null;resizeStage();fitZoom();record('Crop document');updateToolOptions();
 };
 const changeImageSize = (newW,newH) => {
   const oldW=state.width,oldH=state.height,sx=newW/oldW,sy=newH/oldH;
+  // Scale layer transforms rather than permanently resampling raster or embedded sources.
   for(const l of state.layers){
-    const n=makeCanvas(newW,newH),t=n.getContext('2d');
-    t.save();t.scale(sx,sy);t.translate(l.x,l.y);t.scale(l.scaleX,l.scaleY);t.drawImage(l.canvas,0,0);t.restore();
-    l.canvas=n;if(l.maskCanvas){const m=makeCanvas(newW,newH),mc=m.getContext('2d');mc.scale(sx,sy);mc.translate(l.x,l.y);mc.scale(l.scaleX,l.scaleY);mc.drawImage(l.maskCanvas,0,0);l.maskCanvas=m;}l.x=l.y=0;l.scaleX=l.scaleY=1;
-    if(l.textConfig){l.textConfig.size=Math.round(l.textConfig.size*(sx+sy)/2);l.textConfig.x*=sx;l.textConfig.y*=sy;}
-    if(l.type!=='group')determineBounds(l);
+    if(l.type==='group')continue;
+    l.x*=sx;l.y*=sy;l.scaleX*=sx;l.scaleY*=sy;
   }
   state.width=newW;state.height=newH;state.selection=null;state.cropRect=null;resizeStage();fitZoom();record('Resize image');
 };
@@ -1648,7 +1689,7 @@ const applyPreset = name => {
   }
   l.canvas=c;l.type='raster';l.textConfig=null;determineBounds(l);resetAdjustments(false);record(`Filter · ${name}`);toast(`${name[0].toUpperCase()+name.slice(1)} filter applied`);
 };
-const closeModal = () => {currentAdjustmentPreview=null;requestRender();$('#modalContent').classList.remove('newdoc-modal','save-modal');modalBg.classList.add('hidden');$('#modalContent').innerHTML='';modalOpen=false;};
+const closeModal = () => {currentAdjustmentPreview=null;currentAdjustmentPreviewLayerId=null;currentAdjustmentPreviewDocumentId=null;requestRender();$('#modalContent').classList.remove('newdoc-modal','save-modal');modalBg.classList.add('hidden');$('#modalContent').innerHTML='';modalOpen=false;};
 const openModal = (inner,onSubmit) => {
   modalOpen=true;modalBg.classList.remove('hidden');
   $('#modalContent').classList.remove('save-modal');
@@ -1949,6 +1990,7 @@ const projectDataFromState = (doc=state) => ({
   selectedIds:(doc.selectedIds||[doc.activeId]).filter(id=>doc.layers.some(l=>l.id===id)),
   layers:doc.layers.map(l=>({id:l.id,name:l.name,visible:l.visible,opacity:l.opacity,blend:l.blend,locked:l.locked,
     x:l.x,y:l.y,scaleX:l.scaleX,scaleY:l.scaleY,type:l.type,textConfig:l.textConfig,
+    embedded:!!l.embedded,sourceName:l.sourceName||null,
     parentId:l.parentId,expanded:l.expanded,clipToBelow:l.clipToBelow,mask:l.maskCanvas?.toDataURL('image/png')||null,pixels:l.canvas.toDataURL('image/png')}))
 });
 const saveActiveSessionNow = async () => {
@@ -2084,6 +2126,7 @@ const renderDocumentTabs=()=>{
 };
 const beginDocumentTab=()=>{
   captureCurrentDocumentTab();
+  currentAdjustmentPreview=null;currentAdjustmentPreviewLayerId=null;currentAdjustmentPreviewDocumentId=null;
   const tab={id:nextDocumentTabId++,doc:null,history:[],historyIndex:-1,dirty:false};
   documentTabs.push(tab);activeDocumentTabId=tab.id;
   return tab.id;
@@ -2093,6 +2136,7 @@ const focusDocumentTab=(id)=>{
   const tab=documentTabs.find(item=>item.id===id);
   if(!tab||!tab.doc)return;
   captureCurrentDocumentTab();
+  currentAdjustmentPreview=null;currentAdjustmentPreviewLayerId=null;currentAdjustmentPreviewDocumentId=null;
   activeDocumentTabId=id;
   Object.assign(state,tab.doc);
   state.selectedIds=[...(tab.doc.selectedIds||[])];
@@ -2121,6 +2165,7 @@ const closeDocumentTab=(id)=>{
     const next=documentTabs[Math.min(index,documentTabs.length-1)];
     if(next){
       // State from the closed document is no longer the active document.
+      currentAdjustmentPreview=null;currentAdjustmentPreviewLayerId=null;currentAdjustmentPreviewDocumentId=null;
       activeDocumentTabId=next.id;
       Object.assign(state,next.doc);
       state.selectedIds=[...(next.doc.selectedIds||[])];
@@ -2629,12 +2674,15 @@ const openProjectData = async (data,displayName='PixelForge project') => {
   const loaded=[];
   for(const item of data.layers){
     const img=await loadCanvasImage(item.pixels);const layer=makeLayer(String(item.name).slice(0,90));
-    layer.canvas=makeCanvas(data.width,data.height);layer.canvas.getContext('2d').drawImage(img,0,0);
+    const imageW=img.naturalWidth||img.width,imageH=img.naturalHeight||img.height;
+    if(imageW>8192||imageH>8192||imageW*imageH>36000000)throw new Error('Layer source is too large');
+    layer.canvas=makeCanvas(imageW,imageH);layer.canvas.getContext('2d').drawImage(img,0,0);
     layer.visible=item.visible!==false;layer.opacity=clamp(Number(item.opacity)||0,0,1);layer.blend=['source-over','multiply','screen','overlay','darken','lighten','difference','soft-light','hard-light'].includes(item.blend)?item.blend:'source-over';
     layer.locked=!!item.locked;layer.x=Number(item.x)||0;layer.y=Number(item.y)||0;layer.scaleX=Number(item.scaleX)||1;layer.scaleY=Number(item.scaleY)||1;
     layer.type=['raster','group','text'].includes(item.type)?item.type:'raster';layer.textConfig=item.textConfig||null;
+    layer.embedded=!!item.embedded;layer.sourceName=item.sourceName||null;
     layer.expanded=item.expanded!==false;layer.clipToBelow=!!item.clipToBelow;layer.originalId=item.id;layer.originalParentId=item.parentId??null;
-    if(item.mask){layer.maskCanvas=makeCanvas(data.width,data.height);layer.maskCanvas.getContext('2d').drawImage(await loadCanvasImage(item.mask),0,0);}
+    if(item.mask){const maskImg=await loadCanvasImage(item.mask);layer.maskCanvas=makeCanvas(maskImg.naturalWidth||maskImg.width,maskImg.naturalHeight||maskImg.height);layer.maskCanvas.getContext('2d').drawImage(maskImg,0,0);}
     if(layer.type!=='group')determineBounds(layer);loaded.push(layer);
   }
   beginDocumentTab();
@@ -2683,44 +2731,44 @@ const importImage = async (file,dropPoint=null) => {
   try{
     url=URL.createObjectURL(file);
     const img=await loadCanvasImage(url);
-    const layer=addLayer(file.name.replace(/\.[^.]*$/,'').slice(0,70),{},false);
-    const t=layer.canvas.getContext('2d');
-    // Fit the full image inside the document, as Photoshop's Place does.
-    // Preserve aspect ratio, center precisely and do not upscale small sources.
-    // Earlier 96% scaling introduced unintended 3px borders on a 150px canvas.
-    const scale=Math.min(1,state.width/img.width,state.height/img.height);
-    const dw=img.width*scale,dh=img.height*scale;
+    const sourceW=img.naturalWidth||img.width,sourceH=img.naturalHeight||img.height;
+    if(sourceW>8192||sourceH>8192||sourceW*sourceH>36000000)throw new Error('Image exceeds the 8192 px / 36 MP layer limit');
+    // Store every source pixel. Only the layer transform is fitted to the document.
+    // For a 1254px square placed into 150px, the bounds are exactly (0, 0, 150, 150).
+    const scale=Math.min(1,state.width/sourceW,state.height/sourceH);
+    const dw=sourceW*scale,dh=sourceH*scale;
     const x=(state.width-dw)/2,y=(state.height-dh)/2;
-    t.imageSmoothingEnabled=true;
-    t.imageSmoothingQuality='high';
-    t.drawImage(img,Math.round(x),Math.round(y),dw,dh);
-    determineBounds(layer);record('Place image as layer');setTool('move');
+    const layer=addLayer(file.name.replace(/\.[^.]*$/,'').slice(0,70),
+      {canvas:makeCanvas(sourceW,sourceH),x,y,scaleX:scale,scaleY:scale,
+       embedded:true,sourceName:file.name},false);
+    layer.canvas.getContext('2d').drawImage(img,0,0);
+    layer.bounds={x:0,y:0,w:sourceW,h:sourceH};
+    record('Place embedded image');setTool('move');
     toast(`${file.name} placed as a new layer`);
     return true;
   }catch(err){console.error('Place image failed',err);toast('Could not place '+(file.name||'image'));return false;}
   finally{if(url)URL.revokeObjectURL(url);}
 };
-// Electron uses a real Windows file dialog. Web users keep the browser file input.
+// Both the native File dialog and Windows Explorer use the same validated
+// open path, so double-clicking a registered file is equivalent to File > Open.
+const openDesktopFileItems=async (items,kind='open')=>{
+  if(!Array.isArray(items))throw new Error('The Windows file dialog did not return any files');
+  for(const item of items){
+    if(!item||typeof item.name!=='string'||!item.bytes)continue;
+    const bytes=item.bytes instanceof Uint8Array?item.bytes:new Uint8Array(item.bytes);
+    const file=new File([bytes],item.name,{type:String(item.type||'application/octet-stream')});
+    if(kind==='place'&&!appShell.classList.contains('home-mode'))await importImage(file);
+    else await openAnyFile(file);
+  }
+};
 const chooseFileFromComputer=async (kind='open')=>{
   const fallback={open:'#openInput',place:'#imageInput',psd:'#psdInput',project:'#projectInput'};
   if(!Object.hasOwn(fallback,kind))return;
   if(!window.pixelforgeDesktop?.isDesktop){
     $(fallback[kind])?.click();return;
   }
-  try{
-    const items=await window.pixelforgeDesktop.openFiles(kind);
-    if(!Array.isArray(items))throw new Error('The Windows file dialog did not return any files');
-    for(const item of items){
-      if(!item||typeof item.name!=='string'||!item.bytes)continue;
-      const bytes=item.bytes instanceof Uint8Array?item.bytes:new Uint8Array(item.bytes);
-      const file=new File([bytes],item.name,{type:String(item.type||'application/octet-stream')});
-      if(kind==='place'){
-        if(appShell.classList.contains('home-mode')){
-          await openAnyFile(file);
-        }else await importImage(file);
-      }else await openAnyFile(file);
-    }
-  }catch(error){
+  try{await openDesktopFileItems(await window.pixelforgeDesktop.openFiles(kind),kind);}
+  catch(error){
     console.error('Native file open failed',error);
     toast('Could not open file: '+String(error.message||error).slice(0,180));
   }
@@ -2770,7 +2818,7 @@ const adjustmentDefinitions = {
   selective: {title:'Selective Color · Basic',controls:[['reds','Reds',-100,100,0],['greens','Greens',-100,100,0],['blues','Blues',-100,100,0]]},
   lookup: {title:'Color Lookup',controls:[['intensity','Intensity',0,100,70]],select:['warm','cool','teal','cinematic','vintage']},
 };
-let currentAdjustmentPreview=null;
+let currentAdjustmentPreview=null,currentAdjustmentPreviewLayerId=null,currentAdjustmentPreviewDocumentId=null;
 const adjustRasterPixels = (base, key, v) => {
   const output=new ImageData(new Uint8ClampedArray(base.data),base.width,base.height),p=output.data;
   const R=(n)=>clamp(n,0,255), mix=(a,b,t)=>a+(b-a)*t;
@@ -2865,11 +2913,16 @@ const adjustmentDialog = key => {
       currentAdjustmentPreview=null;l.type='raster';l.textConfig=null;determineBounds(l);
       closeModal();record(def.title);
     });
+  const previewTabId=activeDocumentTabId;
   const rerender=()=>{
     scheduled=false;
+    if(!modalOpen||getActive()?.id!==targetId||activeDocumentTabId!==previewTabId)return;
     const result=adjustRasterPixels(base,key,values);
     const preview=makeCanvas(source.width,source.height);preview.getContext('2d').putImageData(result,0,0);
-    currentAdjustmentPreview=previewEnabled()?preview:null;requestRender();
+    currentAdjustmentPreview=previewEnabled()?preview:null;
+    currentAdjustmentPreviewLayerId=currentAdjustmentPreview?targetId:null;
+    currentAdjustmentPreviewDocumentId=currentAdjustmentPreview?previewTabId:null;
+    requestRender();
   };
   const schedule=()=>{if(!scheduled){scheduled=true;requestAnimationFrame(rerender);}};
   const previewEnabled=()=>$('#adjustPreviewOn')?.checked!==false;
@@ -2894,7 +2947,7 @@ const adjustmentDialog = key => {
     paintAdjustmentRange(slider);
     schedule();
   }));
-  $('#adjustPreviewOn').addEventListener('change',()=>{if(!previewEnabled()){currentAdjustmentPreview=null;requestRender();}else schedule();});
+  $('#adjustPreviewOn').addEventListener('change',()=>{if(!previewEnabled()){currentAdjustmentPreview=null;currentAdjustmentPreviewLayerId=null;currentAdjustmentPreviewDocumentId=null;requestRender();}else schedule();});
   if(def.select)$('#adjustPreset').addEventListener('change',e=>{values.preset=e.target.value;schedule();});
   $('#resetAdjustment').addEventListener('click',()=>{
     values={...defaults,preset:def.select?.[0]||'warm'};
@@ -2913,7 +2966,8 @@ const canvasSizeDialog=()=>{
     const anchor=String(data.get('anchor'));
     const dx=anchor.includes('left')?0:anchor.includes('right')?w-state.width:Math.round((w-state.width)/2);
     const dy=anchor.startsWith('top')?0:anchor.startsWith('bottom')?h-state.height:Math.round((h-state.height)/2);
-    for(const l of state.layers){const out=makeCanvas(w,h),t=out.getContext('2d');t.save();t.translate(l.x+dx,l.y+dy);t.scale(l.scaleX,l.scaleY);t.drawImage(l.canvas,0,0);t.restore();l.canvas=out;if(l.maskCanvas){const mask=makeCanvas(w,h),mc=mask.getContext('2d');mc.translate(l.x+dx,l.y+dy);mc.scale(l.scaleX,l.scaleY);mc.drawImage(l.maskCanvas,0,0);l.maskCanvas=mask;}l.x=l.y=0;l.scaleX=l.scaleY=1;if(l.textConfig){l.textConfig.x+=dx;l.textConfig.y+=dy;}if(l.type!=='group')determineBounds(l);}
+    // Changing canvas bounds must not flatten layers or erase offscreen source pixels.
+    for(const l of state.layers){if(l.type!=='group'){l.x+=dx;l.y+=dy;}}
     state.width=w;state.height=h;state.selection=null;state.cropRect=null;resizeStage();fitZoom();record('Canvas size');closeModal();
   });
 };
@@ -3555,9 +3609,10 @@ const setupPointers = () => {
     drawOverlay();
   });
   overlay.addEventListener('pointermove',e=>{
-    const p=docPoint(e);cursorPoint=p;rulerCursor=p;requestRulerRender();
-    $('#statusCoords').textContent=`X: ${Math.round(p.x)}  Y: ${Math.round(p.y)}`;
     const d=drawInteraction;
+    const p=d&&['move','transform','move-group','move-selection'].includes(d.tool)?rawDocPoint(e):docPoint(e);
+    cursorPoint=p;rulerCursor=p;requestRulerRender();
+    $('#statusCoords').textContent=`X: ${Math.round(p.x)}  Y: ${Math.round(p.y)}`;
     if(d){
       if(d.tool==='hand'){
         state.panX=d.panX+(e.clientX-d.clientX);state.panY=d.panY+(e.clientY-d.clientY);applyStageZoom();return;
@@ -3567,9 +3622,13 @@ const setupPointers = () => {
         requestRender();return;
       }
       if(d.tool==='move'){
-        const l=state.layers.find(l=>l.id===d.layerId);if(l){l.x=d.startX+(p.x-d.start.x);l.y=d.startY+(p.y-d.start.y);requestRender();}return;
+        const l=state.layers.find(l=>l.id===d.layerId);if(l){l.x=d.startX+(p.x-d.start.x);l.y=d.startY+(p.y-d.start.y);snapMovedLayer(l,e.shiftKey);requestRender();}return;
       }
-      if(d.tool==='transform'){transformLayer(d,p,{constrain:e.shiftKey||e.altKey,fromCenter:e.altKey});requestRender();return;}
+      if(d.tool==='transform'){
+        const layer=state.layers.find(l=>l.id===d.layerId);
+        transformLayer(d,p,{constrain:layer?.embedded?!e.shiftKey:e.shiftKey||e.altKey,fromCenter:e.altKey});
+        requestRender();return;
+      }
       if(['brush','eraser'].includes(d.tool)){continueBrush(p);return;}
       d.end=p;d.shift=e.shiftKey;
       if(d.tool==='marquee'){
@@ -3661,6 +3720,12 @@ const init = async () => {
   if('ResizeObserver' in window)new ResizeObserver(requestRulerRender).observe(viewport);
   if(window.pixelforgeDesktop?.isDesktop){
     window.pixelforgeDesktop.onOpenRequest(kind=>chooseFileFromComputer(kind));
+    window.pixelforgeDesktop.onExternalFiles(files=>{
+      openDesktopFileItems(files).catch(error=>{
+        console.error('Windows Explorer file open failed',error);
+        toast('Could not open file: '+String(error.message||error).slice(0,180));
+      });
+    });
     window.pixelforgeDesktop.onUpdateReady(message=>toast(String(message||'PixelForge update downloaded.')));
   }
   // Always open on Home. Restore any unfinished documents behind the Home screen,

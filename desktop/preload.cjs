@@ -25,6 +25,11 @@ contextBridge.exposeInMainWorld('pixelforgeDesktop', Object.freeze({
       ipcRenderer.on('pixelforge:request-open',(_event,kind)=>callback(kind));
     }
   },
+  onExternalFiles: callback => {
+    if(typeof callback==='function'){
+      ipcRenderer.on('pixelforge:open-path-files',(_event,files)=>callback(files));
+    }
+  },
   onUpdateReady: callback => {
     if(typeof callback==='function'){
       ipcRenderer.on('pixelforge:update-ready',(_event,message)=>callback(message));
