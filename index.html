@@ -2715,27 +2715,26 @@ const importImage = async (file,dropPoint=null) => {
   }catch(err){console.error('Place image failed',err);toast('Could not place '+(file.name||'image'));return false;}
   finally{if(url)URL.revokeObjectURL(url);}
 };
-// Electron uses a real Windows file dialog. Web users keep the browser file input.
+// Both the native File dialog and Windows Explorer use the same validated
+// open path, so double-clicking a registered file is equivalent to File > Open.
+const openDesktopFileItems=async (items,kind='open')=>{
+  if(!Array.isArray(items))throw new Error('The Windows file dialog did not return any files');
+  for(const item of items){
+    if(!item||typeof item.name!=='string'||!item.bytes)continue;
+    const bytes=item.bytes instanceof Uint8Array?item.bytes:new Uint8Array(item.bytes);
+    const file=new File([bytes],item.name,{type:String(item.type||'application/octet-stream')});
+    if(kind==='place'&&!appShell.classList.contains('home-mode'))await importImage(file);
+    else await openAnyFile(file);
+  }
+};
 const chooseFileFromComputer=async (kind='open')=>{
   const fallback={open:'#openInput',place:'#imageInput',psd:'#psdInput',project:'#projectInput'};
   if(!Object.hasOwn(fallback,kind))return;
   if(!window.pixelforgeDesktop?.isDesktop){
     $(fallback[kind])?.click();return;
   }
-  try{
-    const items=await window.pixelforgeDesktop.openFiles(kind);
-    if(!Array.isArray(items))throw new Error('The Windows file dialog did not return any files');
-    for(const item of items){
-      if(!item||typeof item.name!=='string'||!item.bytes)continue;
-      const bytes=item.bytes instanceof Uint8Array?item.bytes:new Uint8Array(item.bytes);
-      const file=new File([bytes],item.name,{type:String(item.type||'application/octet-stream')});
-      if(kind==='place'){
-        if(appShell.classList.contains('home-mode')){
-          await openAnyFile(file);
-        }else await importImage(file);
-      }else await openAnyFile(file);
-    }
-  }catch(error){
+  try{await openDesktopFileItems(await window.pixelforgeDesktop.openFiles(kind),kind);}
+  catch(error){
     console.error('Native file open failed',error);
     toast('Could not open file: '+String(error.message||error).slice(0,180));
   }
@@ -3677,6 +3676,12 @@ const init = async () => {
   if('ResizeObserver' in window)new ResizeObserver(requestRulerRender).observe(viewport);
   if(window.pixelforgeDesktop?.isDesktop){
     window.pixelforgeDesktop.onOpenRequest(kind=>chooseFileFromComputer(kind));
+    window.pixelforgeDesktop.onExternalFiles(files=>{
+      openDesktopFileItems(files).catch(error=>{
+        console.error('Windows Explorer file open failed',error);
+        toast('Could not open file: '+String(error.message||error).slice(0,180));
+      });
+    });
     window.pixelforgeDesktop.onUpdateReady(message=>toast(String(message||'PixelForge update downloaded.')));
   }
   // Always open on Home. Restore any unfinished documents behind the Home screen,
