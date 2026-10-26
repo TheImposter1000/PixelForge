@@ -19,7 +19,7 @@ The repository's `Windows Desktop EXE` GitHub Actions workflow builds the instal
 
 ## Automatic updates (Windows)
 
-Beginning with the first updater-enabled release, PixelForge Desktop checks for updates when it starts and every six hours while running. Open the native **Updates** menu to:
+PixelForge Desktop checks for updates when it starts and every six hours while running. The Home screen shows the installed version, update availability, download progress, and a **Check for Updates** button. Open the native **Updates** menu to:
 
 - **Check for Updates…** at any time.
 - Turn **Check automatically** on or off (enabled initially).
@@ -52,3 +52,7 @@ The app contains only the Supabase **publishable** key. OAuth client secrets and
 - Open documents are recovered using the app's local profile and not shared with the web edition.
 - This is an early unsigned installer, not a Microsoft Store package.
 - To avoid losing work, save .pforge backups before uninstalling or clearing app data.
+
+## Photo and GIF export quality
+
+For photographic portraits, export at **100% image dimensions**, use **256 GIF palette colors**, and leave optional Floyd–Steinberg dithering off for clean skin tones. Enable the dithering option only if smooth gradients show visible banding. PixelForge's GIF exporter uses an image-adaptive palette and finer 6-bit/channel color matching. **PNG or WebP** remains preferable when you need full-color detail because GIF cannot store more than 256 palette entries. The Windows build tests both transparent GIF decoding and quantitative pixel fidelity before publishing.
