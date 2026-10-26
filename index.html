@@ -213,6 +213,9 @@
 .inspector-tabs button.active{color:#f1edff;border-bottom-color:#9c83ff;background:#292a34}
 .inspector-tab-panel{display:none;padding:15px;min-height:205px}
 .inspector-tab-panel.active{display:block}
+.inspector-tab-panel{min-height:0}
+.inspector-tabs-section:has([data-inspector-tab="properties"].active) [data-inspector-panel="color"],
+.inspector-tabs-section:has([data-inspector-tab="color"].active) [data-inspector-panel="properties"]{display:block}
 .inspector-tabs-section .properties-section{background:#20212b}
 .inspector-tabs-section .color-section,.inspector-tabs-section .adjustments-section{border:0}
 
@@ -222,7 +225,8 @@
 .topbar #headerResize,
 .topbar #headerOpen,
 .topbar #headerExport{display:none!important}
-.optionsbar{display:none!important}
+.workspace-topnote{display:none!important}
+.optionsbar{display:flex}
 .navigator-section,
 .history-section{display:none!important}
 
@@ -1315,7 +1319,7 @@ const updateToolOptions = () => {
   else if(t==='text')html='<span style="color:#9296a8">Click anywhere on the canvas to add editable text</span>';
   else if(t==='zoom')html='<button id="zoomInOption">Zoom in +</button><button id="zoomOutOption">Zoom out −</button><button id="fitOption">Fit to screen</button>';
   else if(t==='hand')html='<span style="color:#9296a8">Drag the canvas to pan · Hold Space from any tool</span>';
-  else if(t==='move')html='<span style="color:#9296a8">Drag to move · Shift + corner keeps proportions · Alt + corner resizes proportionally from center · Ctrl/Cmd or Shift click layers for multi-select</span>';
+  else if(t==='move')html='<span style="color:#9296a8">Drag to move · Images resize proportionally by default · Shift unlocks proportions · Alt resizes from center · Ctrl/Cmd or Shift click layers for multi-select</span>';
   else if(t==='eyedropper')html='<span style="color:#9296a8">Click the canvas to sample a color</span>';
   $('#toolOptions').innerHTML=html;
   const bindInput=(s,fn)=>{const el=$(s);if(el)el.addEventListener('input',fn);};
@@ -1335,6 +1339,13 @@ const updateToolOptions = () => {
 const docPoint = e => {
   const r=overlay.getBoundingClientRect();
   return {x:clamp((e.clientX-r.left)/r.width*state.width,0,state.width),y:clamp((e.clientY-r.top)/r.height*state.height,0,state.height)};
+};
+// Dragged layers may extend beyond the document; clipping their pointer
+// coordinates to the canvas prevents Photoshop-style off-canvas placement.
+const rawDocPoint=e=>{
+  const r=overlay.getBoundingClientRect();
+  return {x:(e.clientX-r.left)/r.width*state.width,
+          y:(e.clientY-r.top)/r.height*state.height};
 };
 const localPoint = (layer,p) => ({x:(p.x-layer.x)/layer.scaleX,y:(p.y-layer.y)/layer.scaleY});
 const rectFromPoints = (a,b,square=false) => {
@@ -1389,6 +1400,17 @@ const applyLayerProperty = (key,value) => {
     if(lock){if(key==='w')l.scaleY*=factor;else l.scaleX*=factor;}
   }else return;
   record('Transform layer');
+};
+const snapMovedLayer=(layer,disable=false)=>{
+  if(disable)return;
+  const b=docLayerBounds(layer);if(!b)return;
+  const threshold=6/Math.max(state.zoom,.25);
+  const targetsX=[0,(state.width-b.w)/2,state.width-b.w];
+  const targetsY=[0,(state.height-b.h)/2,state.height-b.h];
+  const near=(v,targets)=>targets.find(t=>Math.abs(t-v)<=threshold);
+  const tx=near(b.x,targetsX),ty=near(b.y,targetsY);
+  if(tx!==undefined)layer.x+=tx-b.x;
+  if(ty!==undefined)layer.y+=ty-b.y;
 };
 const hitTransformHandle = (point,layer) => {
   const b=docLayerBounds(layer);if(!b||b.w<1||b.h<1)return null;
@@ -3587,9 +3609,10 @@ const setupPointers = () => {
     drawOverlay();
   });
   overlay.addEventListener('pointermove',e=>{
-    const p=docPoint(e);cursorPoint=p;rulerCursor=p;requestRulerRender();
-    $('#statusCoords').textContent=`X: ${Math.round(p.x)}  Y: ${Math.round(p.y)}`;
     const d=drawInteraction;
+    const p=d&&['move','transform','move-group','move-selection'].includes(d.tool)?rawDocPoint(e):docPoint(e);
+    cursorPoint=p;rulerCursor=p;requestRulerRender();
+    $('#statusCoords').textContent=`X: ${Math.round(p.x)}  Y: ${Math.round(p.y)}`;
     if(d){
       if(d.tool==='hand'){
         state.panX=d.panX+(e.clientX-d.clientX);state.panY=d.panY+(e.clientY-d.clientY);applyStageZoom();return;
@@ -3599,9 +3622,13 @@ const setupPointers = () => {
         requestRender();return;
       }
       if(d.tool==='move'){
-        const l=state.layers.find(l=>l.id===d.layerId);if(l){l.x=d.startX+(p.x-d.start.x);l.y=d.startY+(p.y-d.start.y);requestRender();}return;
+        const l=state.layers.find(l=>l.id===d.layerId);if(l){l.x=d.startX+(p.x-d.start.x);l.y=d.startY+(p.y-d.start.y);snapMovedLayer(l,e.shiftKey);requestRender();}return;
       }
-      if(d.tool==='transform'){transformLayer(d,p,{constrain:e.shiftKey||e.altKey,fromCenter:e.altKey});requestRender();return;}
+      if(d.tool==='transform'){
+        const layer=state.layers.find(l=>l.id===d.layerId);
+        transformLayer(d,p,{constrain:layer?.embedded?!e.shiftKey:e.shiftKey||e.altKey,fromCenter:e.altKey});
+        requestRender();return;
+      }
       if(['brush','eraser'].includes(d.tool)){continueBrush(p);return;}
       d.end=p;d.shift=e.shiftKey;
       if(d.tool==='marquee'){
