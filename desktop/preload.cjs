@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld('pixelforgeDesktop', Object.freeze({
   isDesktop: true,
   openOAuth: url => ipcRenderer.invoke('pixelforge:open-oauth', url),
   openFiles: kind => ipcRenderer.invoke('pixelforge:open-files', kind),
+  getUpdateStatus: () => ipcRenderer.invoke('pixelforge:update-status'),
+  checkForUpdates: () => ipcRenderer.invoke('pixelforge:check-updates'),
+  onUpdateStatus: callback => {
+    if(typeof callback==='function')
+      ipcRenderer.on('pixelforge:update-status',(_event,status)=>callback(status));
+  },
   onOpenRequest: callback => {
     if(typeof callback==='function'){
       ipcRenderer.on('pixelforge:request-open',(_event,kind)=>callback(kind));
