@@ -34,6 +34,12 @@ jobs:
       - name: Install Electron dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Check Electron code and editor regression invariants
+        run: |
+          node --check desktop/main.cjs
+          node --check desktop/preload.cjs
+          npm run test:editor
+
       - name: Validate GIF quality and transparency
         run: npm run test:gif
 
