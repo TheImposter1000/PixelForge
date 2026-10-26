@@ -813,7 +813,13 @@ const paintLayerItem = (target,layer,showPreview=false) => {
   }else{
     target.translate(layer.x,layer.y);target.scale(layer.scaleX,layer.scaleY);
     if(showPreview&&layer.id===state.activeId)target.filter=effectiveFilter();
-    target.drawImage((showPreview&&layer.id===state.activeId&&currentAdjustmentPreview)||layerSourceCanvas(layer),0,0);
+    const preview=showPreview&&layer.id===state.activeId&&currentAdjustmentPreview
+      &&currentAdjustmentPreviewLayerId===layer.id
+      &&currentAdjustmentPreviewDocumentId===activeDocumentTabId
+      &&currentAdjustmentPreview.width===layer.canvas.width
+      &&currentAdjustmentPreview.height===layer.canvas.height
+      ?currentAdjustmentPreview:null;
+    target.drawImage(preview||layerSourceCanvas(layer),0,0);
   }
   target.restore();
 };
@@ -972,6 +978,9 @@ const resizeStage = () => {
   stage.style.width=`${w*z}px`;stage.style.height=`${h*z}px`;
   stage.style.transform=`translate(-50%, -50%) translate(${state.panX}px, ${state.panY}px)`;
   $('#canvasSizeLabel').textContent=`${w} × ${h} px`;
+  // Resizing a canvas resets its bitmap. Paint immediately, then schedule a
+  // normal frame to avoid showing an empty or partly stale canvas after tabs switch.
+  drawLayers(ctx);drawOverlay();
   requestRender();requestRulerRender();updateStatus();
 };
 const applyStageZoom = () => {
@@ -1658,7 +1667,7 @@ const applyPreset = name => {
   }
   l.canvas=c;l.type='raster';l.textConfig=null;determineBounds(l);resetAdjustments(false);record(`Filter · ${name}`);toast(`${name[0].toUpperCase()+name.slice(1)} filter applied`);
 };
-const closeModal = () => {currentAdjustmentPreview=null;requestRender();$('#modalContent').classList.remove('newdoc-modal','save-modal');modalBg.classList.add('hidden');$('#modalContent').innerHTML='';modalOpen=false;};
+const closeModal = () => {currentAdjustmentPreview=null;currentAdjustmentPreviewLayerId=null;currentAdjustmentPreviewDocumentId=null;requestRender();$('#modalContent').classList.remove('newdoc-modal','save-modal');modalBg.classList.add('hidden');$('#modalContent').innerHTML='';modalOpen=false;};
 const openModal = (inner,onSubmit) => {
   modalOpen=true;modalBg.classList.remove('hidden');
   $('#modalContent').classList.remove('save-modal');
@@ -2095,6 +2104,7 @@ const renderDocumentTabs=()=>{
 };
 const beginDocumentTab=()=>{
   captureCurrentDocumentTab();
+  currentAdjustmentPreview=null;currentAdjustmentPreviewLayerId=null;currentAdjustmentPreviewDocumentId=null;
   const tab={id:nextDocumentTabId++,doc:null,history:[],historyIndex:-1,dirty:false};
   documentTabs.push(tab);activeDocumentTabId=tab.id;
   return tab.id;
@@ -2104,6 +2114,7 @@ const focusDocumentTab=(id)=>{
   const tab=documentTabs.find(item=>item.id===id);
   if(!tab||!tab.doc)return;
   captureCurrentDocumentTab();
+  currentAdjustmentPreview=null;currentAdjustmentPreviewLayerId=null;currentAdjustmentPreviewDocumentId=null;
   activeDocumentTabId=id;
   Object.assign(state,tab.doc);
   state.selectedIds=[...(tab.doc.selectedIds||[])];
@@ -2132,6 +2143,7 @@ const closeDocumentTab=(id)=>{
     const next=documentTabs[Math.min(index,documentTabs.length-1)];
     if(next){
       // State from the closed document is no longer the active document.
+      currentAdjustmentPreview=null;currentAdjustmentPreviewLayerId=null;currentAdjustmentPreviewDocumentId=null;
       activeDocumentTabId=next.id;
       Object.assign(state,next.doc);
       state.selectedIds=[...(next.doc.selectedIds||[])];
@@ -2784,7 +2796,7 @@ const adjustmentDefinitions = {
   selective: {title:'Selective Color · Basic',controls:[['reds','Reds',-100,100,0],['greens','Greens',-100,100,0],['blues','Blues',-100,100,0]]},
   lookup: {title:'Color Lookup',controls:[['intensity','Intensity',0,100,70]],select:['warm','cool','teal','cinematic','vintage']},
 };
-let currentAdjustmentPreview=null;
+let currentAdjustmentPreview=null,currentAdjustmentPreviewLayerId=null,currentAdjustmentPreviewDocumentId=null;
 const adjustRasterPixels = (base, key, v) => {
   const output=new ImageData(new Uint8ClampedArray(base.data),base.width,base.height),p=output.data;
   const R=(n)=>clamp(n,0,255), mix=(a,b,t)=>a+(b-a)*t;
@@ -2879,11 +2891,16 @@ const adjustmentDialog = key => {
       currentAdjustmentPreview=null;l.type='raster';l.textConfig=null;determineBounds(l);
       closeModal();record(def.title);
     });
+  const previewTabId=activeDocumentTabId;
   const rerender=()=>{
     scheduled=false;
+    if(!modalOpen||getActive()?.id!==targetId||activeDocumentTabId!==previewTabId)return;
     const result=adjustRasterPixels(base,key,values);
     const preview=makeCanvas(source.width,source.height);preview.getContext('2d').putImageData(result,0,0);
-    currentAdjustmentPreview=previewEnabled()?preview:null;requestRender();
+    currentAdjustmentPreview=previewEnabled()?preview:null;
+    currentAdjustmentPreviewLayerId=currentAdjustmentPreview?targetId:null;
+    currentAdjustmentPreviewDocumentId=currentAdjustmentPreview?previewTabId:null;
+    requestRender();
   };
   const schedule=()=>{if(!scheduled){scheduled=true;requestAnimationFrame(rerender);}};
   const previewEnabled=()=>$('#adjustPreviewOn')?.checked!==false;
@@ -2908,7 +2925,7 @@ const adjustmentDialog = key => {
     paintAdjustmentRange(slider);
     schedule();
   }));
-  $('#adjustPreviewOn').addEventListener('change',()=>{if(!previewEnabled()){currentAdjustmentPreview=null;requestRender();}else schedule();});
+  $('#adjustPreviewOn').addEventListener('change',()=>{if(!previewEnabled()){currentAdjustmentPreview=null;currentAdjustmentPreviewLayerId=null;currentAdjustmentPreviewDocumentId=null;requestRender();}else schedule();});
   if(def.select)$('#adjustPreset').addEventListener('change',e=>{values.preset=e.target.value;schedule();});
   $('#resetAdjustment').addEventListener('click',()=>{
     values={...defaults,preset:def.select?.[0]||'warm'};
