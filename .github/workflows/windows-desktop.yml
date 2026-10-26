@@ -9,6 +9,14 @@ on:
       - 'desktop/**'
       - 'package.json'
       - '.github/workflows/windows-desktop.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'cloud-config.js'
+      - 'desktop/**'
+      - 'package.json'
+      - '.github/workflows/windows-desktop.yml'
   workflow_dispatch:
 
 concurrency:
