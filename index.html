@@ -2685,11 +2685,14 @@ const importImage = async (file,dropPoint=null) => {
     const img=await loadCanvasImage(url);
     const layer=addLayer(file.name.replace(/\.[^.]*$/,'').slice(0,70),{},false);
     const t=layer.canvas.getContext('2d');
-    // Photoshop-like Place: keep aspect ratio, shrink oversized images to fit the canvas,
-    // and never enlarge a smaller source past its native resolution.
-    const scale=Math.min(1,(state.width*.96)/img.width,(state.height*.96)/img.height);
+    // Fit the full image inside the document, as Photoshop's Place does.
+    // Preserve aspect ratio, center precisely and do not upscale small sources.
+    // Earlier 96% scaling introduced unintended 3px borders on a 150px canvas.
+    const scale=Math.min(1,state.width/img.width,state.height/img.height);
     const dw=img.width*scale,dh=img.height*scale;
     const x=(state.width-dw)/2,y=(state.height-dh)/2;
+    t.imageSmoothingEnabled=true;
+    t.imageSmoothingQuality='high';
     t.drawImage(img,Math.round(x),Math.round(y),dw,dh);
     determineBounds(layer);record('Place image as layer');setTool('move');
     toast(`${file.name} placed as a new layer`);
