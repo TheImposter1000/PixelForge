@@ -2227,7 +2227,7 @@ function encodeStaticGif(image,{colors=256,dither=false,alphaThreshold=128}={}){
     palette[3*i+1]=Math.round(green/total);
     palette[3*i+2]=Math.round(blue/total);
   }
-  // Two inexpensive color-weighted k-means passes refine the median-cut colors.
+  // Five color-weighted k-means passes refine facial tones and nearby gradients.
   const nearest=(r,g,b)=>{
     let best=0,bestDistance=Infinity;
     for(let j=0;j<paletteCount;j++){
@@ -2237,7 +2237,7 @@ function encodeStaticGif(image,{colors=256,dither=false,alphaThreshold=128}={}){
     }
     return best;
   };
-  for(let pass=0;pass<2&&paletteCount>1;pass++){
+  for(let pass=0;pass<5&&paletteCount>1;pass++){
     const populations=new Float64Array(paletteCount);
     const red=new Float64Array(paletteCount),green=new Float64Array(paletteCount),blue=new Float64Array(paletteCount);
     for(const p of entries){
@@ -2250,24 +2250,57 @@ function encodeStaticGif(image,{colors=256,dither=false,alphaThreshold=128}={}){
       palette[3*j+2]=Math.round(blue[j]/populations[j]);
     }
   }
-  const indexed=new Uint8Array(w*h),cache=new Int16Array(32768);
+  const indexed=new Uint8Array(w*h);
+  // The original 5-bit lookup was coarser than many of the actual palette colors,
+  // creating unnecessary blocks and banding in 150x150 portrait exports.
+  // A 6-bit/channel cache limits reuse to 4 RGB values instead of 8.
+  const cache=new Int16Array(262144);
   cache.fill(-1);
+  const channel=value=>Math.max(0,Math.min(255,Math.round(value)));
   const getIndex=(r,g,b)=>{
-    const key=((r>>>3)<<10)|((g>>>3)<<5)|(b>>>3);
+    const key=((r>>>2)<<12)|((g>>>2)<<6)|(b>>>2);
     let j=cache[key];
-    if(j<0){
-      j=nearest(r,g,b);cache[key]=j;
-    }
+    if(j<0){j=nearest(r,g,b);cache[key]=j;}
     return j;
   };
-  const bayer=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
-  const channel=value=>Math.max(0,Math.min(255,Math.round(value)));
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    const j=y*w+x,i=j*4;
-    if(pixels[i+3]<threshold){indexed[j]=transparentIndex;continue;}
-    // Subtle ordered dithering; disable it for the cleanest photographic gradients.
-    const shift=dither?(bayer[(y&3)*4+(x&3)]-7.5)*1.25:0;
-    indexed[j]=getIndex(channel(pixels[i]+shift),channel(pixels[i+1]+shift),channel(pixels[i+2]+shift));
+  if(dither){
+    // Serpentine Floyd-Steinberg diffusion smooths gradients without the
+    // distracting repeating 4x4 texture of the former ordered-dither setting.
+    const stride=(w+2)*3;
+    let current=new Float32Array(stride),next=new Float32Array(stride);
+    const diffuse=(row,x,r,g,b,weight)=>{
+      const offset=(x+1)*3;
+      row[offset]+=r*weight;row[offset+1]+=g*weight;row[offset+2]+=b*weight;
+    };
+    for(let y=0;y<h;y++){
+      const reverse=(y&1)===1;
+      for(let n=0;n<w;n++){
+        const x=reverse?w-n-1:n,j=y*w+x,i=j*4,offset=(x+1)*3;
+        if(pixels[i+3]<threshold){indexed[j]=transparentIndex;continue;}
+        const r=channel(pixels[i]+current[offset]);
+        const g=channel(pixels[i+1]+current[offset+1]);
+        const b=channel(pixels[i+2]+current[offset+2]);
+        const picked=getIndex(r,g,b),k=picked*3;
+        indexed[j]=picked;
+        // Diffuse only 75% of the quantization error: retain soft gradations
+        // while reducing the apparent colored grain around skin and hair.
+        const er=(r-palette[k])*.75,eg=(g-palette[k+1])*.75,eb=(b-palette[k+2])*.75;
+        const sign=reverse?-1:1;
+        if(x+sign>=0&&x+sign<w)diffuse(current,x+sign,er,eg,eb,7/16);
+        if(y+1<h){
+          if(x-sign>=0&&x-sign<w)diffuse(next,x-sign,er,eg,eb,3/16);
+          diffuse(next,x,er,eg,eb,5/16);
+          if(x+sign>=0&&x+sign<w)diffuse(next,x+sign,er,eg,eb,1/16);
+        }
+      }
+      const swap=current;current=next;next=swap;next.fill(0);
+    }
+  }else{
+    for(let j=0;j<w*h;j++){
+      const i=j*4;
+      if(pixels[i+3]<threshold){indexed[j]=transparentIndex;continue;}
+      indexed[j]=getIndex(pixels[i],pixels[i+1],pixels[i+2]);
+    }
   }
   const bytes=[],str=value=>{for(let i=0;i<value.length;i++)bytes.push(value.charCodeAt(i));};
   const short=n=>{bytes.push(n&255,(n>>>8)&255);};
@@ -2394,6 +2427,8 @@ const downloadNamedSave = async (format,name,options={},keepForManualDownload=fa
   const out=makeCanvas(width,height),ctx=out.getContext('2d');
   const opaque=['jpeg','bmp','pdf'].includes(format)||!transparency||(format==='tga'&&Number(tgaDepth)===24);
   const background=/^#[0-9a-f]{6}$/i.test(matte)?matte:'#ffffff';
+  ctx.imageSmoothingEnabled=true;
+  ctx.imageSmoothingQuality='high';
   ctx.scale(width/state.width,height/state.height);
   drawLayers(ctx,{showPreview:false,background:opaque?background:null});
   ctx.setTransform(1,0,0,1,0,0);
@@ -2442,7 +2477,7 @@ const saveWorkflowDialog = (mode='as') => {
     +'<label id="saveMatteRow" class="save-quality-hidden">Background / matte color<input name="matte" type="color" value="#ffffff"></label>'
     +'<label id="saveGifColorsRow" class="save-quality-hidden">GIF palette colors<select name="gifColors"><option value="256">256 colors</option><option value="128">128 colors</option><option value="64">64 colors</option><option value="32">32 colors</option><option value="16">16 colors</option></select></label>'
     +'<label id="saveGifThresholdRow" class="save-quality-hidden">GIF transparency threshold (0–255)<input name="gifThreshold" type="number" min="0" max="255" value="128"></label>'
-    +'<label id="saveGifDitherRow" class="checkbox-inline save-quality-hidden"><input type="checkbox" name="gifDither">Ordered dithering (can add texture to portraits)</label>'
+    +'<label id="saveGifDitherRow" class="checkbox-inline save-quality-hidden"><input type="checkbox" name="gifDither">Smooth gradient dithering (Floyd–Steinberg; optional)</label>'
     +'<label id="saveTgaDepthRow" class="save-quality-hidden">TGA pixel depth<select name="tgaDepth"><option value="32">32-bit RGBA</option><option value="24">24-bit RGB</option></select></label>'
     +'<label id="saveDpiRow" class="save-quality-hidden">Resolution (pixels per inch)<input name="outputDpi" type="number" min="36" max="1200" value="'+Math.round(state.resolution||72)+'"></label>'
     +'<div class="save-output-size save-setting-wide" id="saveOutputSize" aria-live="polite"></div>'
@@ -2538,7 +2573,7 @@ const saveWorkflowDialog = (mode='as') => {
       png:'Lossless PNG image with optional transparency. Flattened image, not editable layers.',
       jpeg:'JPEG photograph with adjustable quality, no transparency and no layers.',
       webp:'WebP single-frame image with adjustable quality and optional transparency.',
-      gif:'Single-frame GIF with image-adaptive colors (up to 256). Leave dithering off for cleaner portraits; enable it for smoother color transitions if needed. Not animated. Maximum 6 MP.',
+      gif:'Single-frame GIF with up to 256 image-adaptive colors. Select 256 colors for portraits; optional Floyd–Steinberg dithering smooths gradients. PNG and WebP preserve more detail. Not animated. Maximum 6 MP.',
       bmp:'24-bit BMP image. Transparency flattened to white. Maximum 16 megapixels.',
       tiff:'Uncompressed 8-bit RGBA TIFF. Supports transparency but not PixelForge layers. Maximum 16 megapixels.',
       tga:'Choose 24-bit RGB or 32-bit RGBA Targa. Only 32-bit mode supports transparency. Maximum 16 MP.',
