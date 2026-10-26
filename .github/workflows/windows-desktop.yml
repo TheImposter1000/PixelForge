@@ -34,6 +34,9 @@ jobs:
       - name: Install Electron dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Validate GIF quality and transparency
+        run: npm run test:gif
+
       - name: Set unique Windows release version
         run: npm version 0.1.${{ github.run_number }} --no-git-tag-version
 
