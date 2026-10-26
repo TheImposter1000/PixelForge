@@ -71,6 +71,35 @@
         "repo": "PixelForge",
         "releaseType": "release"
       }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "pforge",
+        "name": "PixelForge Studio Project",
+        "description": "Editable PixelForge image project",
+        "role": "Editor"
+      },
+      {
+        "ext": [
+          "png",
+          "jpg",
+          "jpeg",
+          "webp",
+          "gif",
+          "bmp",
+          "avif",
+          "svg"
+        ],
+        "name": "PixelForge Image",
+        "description": "Image file",
+        "role": "Editor"
+      },
+      {
+        "ext": "psd",
+        "name": "Photoshop Document",
+        "description": "Layered Photoshop image",
+        "role": "Editor"
+      }
     ]
   },
   "dependencies": {
